@@ -3,6 +3,7 @@ package com.example.userservice.service;
 import com.example.userservice.entity.User;
 import com.example.userservice.entity.RechargeCard;
 import com.example.userservice.entity.Transaction;
+import com.example.userservice.exception.UserNotFoundException;
 import com.example.userservice.repository.UserRepository;
 import com.example.userservice.repository.RechargeCardRepository;
 import com.example.userservice.repository.TransactionRepository;
@@ -20,13 +21,18 @@ public class UserService {
     private final RechargeCardRepository rechargeCardRepository;
     private final TransactionRepository transactionRepository;
 
+    private final SmsService smsService;
+
     public UserService(UserRepository userRepository,
                        RechargeCardRepository rechargeCardRepository,
-                       TransactionRepository transactionRepository) {
+                       TransactionRepository transactionRepository,
+                       SmsService smsService) {
         this.userRepository = userRepository;
         this.rechargeCardRepository = rechargeCardRepository;
         this.transactionRepository = transactionRepository;
+        this.smsService = smsService;
     }
+
 
     // Get all users
     public List<User> getAllUsers() {
@@ -41,43 +47,67 @@ public class UserService {
     // Get user by ID
     public User getUserById(Long userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> new UserNotFoundException("User with ID " + userId + " not found."));
     }
 
     // Create new user
     public User createUser(User user) {
         user.setBalance(user.getBalance() != null ? user.getBalance() : BigDecimal.ZERO);
-        return userRepository.save(user);
+        User savedUser = userRepository.save(user);
+
+        if (savedUser.getRole() != null && "POS".equalsIgnoreCase(savedUser.getRole().getName())) {
+            // Simulate sending SMS
+            System.out.println("SMS sent to " + savedUser.getPhoneNumber() + ": Welcome! You are now working with us as a POS.");
+        }
+
+        return savedUser;
     }
 
+
+
     // Recharge user using card
-    public Transaction rechargeUsingCard(Long userId, String code) {
+    public Transaction rechargeUsingCard(Long userId, String posUsername, String posPassword, String code) {
         RechargeCard card = rechargeCardRepository.findByCode(code);
 
-        if (card == null) {
-            throw new IllegalArgumentException("Invalid card code.");
-        }
-        if (Boolean.TRUE.equals(card.getIsUsed())) {
-            throw new IllegalArgumentException("This card has already been used.");
+        if (card == null || Boolean.TRUE.equals(card.getIsUsed())) {
+            throw new IllegalArgumentException("Invalid or already used card.");
         }
 
+        // Get POS (salesman) by username
+        User pos = userRepository.findByUsername(posUsername);
+        if (pos == null) {
+            throw new IllegalArgumentException("POS user not found.");
+        }
+
+        // Check password (plaintext comparison here – you can hash later if needed)
+        if (!pos.getPasswordHash().equals(posPassword)) {
+            throw new IllegalArgumentException("Incorrect POS credentials.");
+        }
+
+        // Get target user
         User user = getUserById(userId);
 
-        // Update user's balance
-        BigDecimal newBalance = user.getBalance().add(card.getValue());
-        user.setBalance(newBalance);
-        userRepository.save(user);
+        // Check POS balance before deducting
+        if (pos.getBalance().compareTo(card.getValue()) < 0) {
+            throw new IllegalArgumentException("POS has insufficient balance.");
+        }
 
-        // Update card as used
+        // Transfer balance
+        user.setBalance(user.getBalance().add(card.getValue()));
+        pos.setBalance(pos.getBalance().subtract(card.getValue()));
+        userRepository.save(user);
+        userRepository.save(pos);
+
+        // Mark card as used
         card.setIsUsed(true);
         card.setUsedBy(userId);
         card.setUsedAt(LocalDateTime.now());
         rechargeCardRepository.save(card);
 
-        // Save transaction
+        // Record transaction
         Transaction txn = new Transaction();
-        txn.setRequesterId(-1L);
-        txn.setTargetId(userId);
+        txn.setRequesterId(pos.getId()); // POS (seller)
+        txn.setTargetId(userId);         // Buyer
         txn.setChannel("card");
         txn.setTransactionType("recharge");
         txn.setAmount(card.getValue());

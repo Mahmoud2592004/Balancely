@@ -1,35 +1,47 @@
 package com.example.userservice.entity;
 
+import com.fasterxml.jackson.databind.util.ClassUtil;
 import jakarta.persistence.*;
+import org.springframework.boot.context.properties.bind.DefaultValue;
+
 import java.math.BigDecimal;
 
 @Entity
 @Table(name = "users")
 public class User {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "full_name", nullable = false)
+    @Column(name = "full_name", nullable = true)
     private String fullName;
 
     @Column(nullable = false, unique = true)
     private String username;
 
-    @Column(name = "password_hash", nullable = false)
+    @Column(name = "password_hash", nullable = true)
     private String passwordHash;
 
-    @Column(name = "phone_number")
+    @Column(name = "phone_number",nullable = true)
     private String phoneNumber;
 
     @Column
     private BigDecimal balance;
 
-    @Column(name = "role_id")
-    private Integer roleId;
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "role_id")
+    private Role role;
 
     @Column(name = "location_id")
     private Integer locationId;
+
+    public  User(){
+        // Initaile value of the balance equals zerooooooooooooooooooooooooooooooooooooooooooooooo
+        
+        this.balance = BigDecimal.valueOf(0);
+    }
+
 
     // === Getters and Setters ===
 
@@ -57,8 +69,8 @@ public class User {
         return balance;
     }
 
-    public Integer getRoleId() {
-        return roleId;
+    public Role getRole() {
+        return role;
     }
 
     public Integer getLocationId() {
@@ -89,8 +101,8 @@ public class User {
         this.balance = balance;
     }
 
-    public void setRoleId(Integer roleId) {
-        this.roleId = roleId;
+    public void setRole(Role role) {
+        this.role = role;
     }
 
     public void setLocationId(Integer locationId) {

@@ -43,8 +43,14 @@ public class UserController {
     }
 
     @PostMapping("/{userId}/recharge/card")
-    public Transaction rechargeWithCard(@PathVariable Long userId, @RequestParam String code) {
-        return userService.rechargeUsingCard(userId, code);
+    public Transaction rechargeWithCard(
+            @PathVariable Long userId,
+            @RequestParam String posUsername,
+            @RequestParam String posPassword,
+            @RequestParam String code
+    ) {
+        return userService.rechargeUsingCard(userId, posUsername, posPassword, code);
     }
+
 
 }
