@@ -1,9 +1,11 @@
 package com.example.userservice.controller;
 
+import com.example.userservice.entity.Transaction;
 import com.example.userservice.entity.User;
 import com.example.userservice.service.UserService;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
@@ -29,4 +31,20 @@ public class UserController {
     public User create(@RequestBody User user) {
         return userService.createUser(user);
     }
+
+    @GetMapping("/{userId}/balance")
+    public BigDecimal getBalance(@PathVariable Long userId) {
+        return userService.getUserById(userId).getBalance();
+    }
+
+    @GetMapping("/{userId}/transactions")
+    public List<Transaction> getHistory(@PathVariable Long userId) {
+        return userService.getTransactionHistory(userId);
+    }
+
+    @PostMapping("/{userId}/recharge/card")
+    public Transaction rechargeWithCard(@PathVariable Long userId, @RequestParam String code) {
+        return userService.rechargeUsingCard(userId, code);
+    }
+
 }
