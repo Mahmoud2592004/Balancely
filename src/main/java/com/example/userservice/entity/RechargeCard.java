@@ -1,77 +1,35 @@
 package com.example.userservice.entity;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "recharge_cards")
+@Getter
+@Setter
 public class RechargeCard {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true)
+    @Column(nullable = false, unique = true)
     private String code;
 
+    @Column(nullable = false)
     private BigDecimal value;
 
     @Column(name = "is_used")
-    private Boolean isUsed;
+    private boolean isUsed = false;
 
-    @Column(name = "used_by")
-    private Long usedBy;
+    @ManyToOne
+    @JoinColumn(name = "used_by")
+    private User usedBy;
 
     @Column(name = "used_at")
     private LocalDateTime usedAt;
-
-    // === Getters and Setters ===
-
-    public Long getId() {
-        return id;
-    }
-
-    public String getCode() {
-        return code;
-    }
-
-    public BigDecimal getValue() {
-        return value;
-    }
-
-    public Boolean getIsUsed() {
-        return isUsed;
-    }
-
-    public Long getUsedBy() {
-        return usedBy;
-    }
-
-    public LocalDateTime getUsedAt() {
-        return usedAt;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public void setCode(String code) {
-        this.code = code;
-    }
-
-    public void setValue(BigDecimal value) {
-        this.value = value;
-    }
-
-    public void setIsUsed(Boolean isUsed) {
-        this.isUsed = isUsed;
-    }
-
-    public void setUsedBy(Long usedBy) {
-        this.usedBy = usedBy;
-    }
-
-    public void setUsedAt(LocalDateTime usedAt) {
-        this.usedAt = usedAt;
-    }
 }
