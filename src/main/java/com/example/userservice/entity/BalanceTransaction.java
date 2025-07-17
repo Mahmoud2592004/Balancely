@@ -17,26 +17,28 @@ public class BalanceTransaction {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
-    @JoinColumn(name = "source_entity_id")
-    private User source;
-
-    @ManyToOne
-    @JoinColumn(name = "destination_entity_id")
-    private User destination;
-
     @Column(nullable = false)
     private BigDecimal amount;
 
-    private String transactionType = "recharge";
+    @Column(nullable = false)
+    private String transactionType;
 
-    private String status = "success";
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "source_id", nullable = false)
+    private User source;
 
-    private String reason;
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "destination_id", nullable = false)
+    private User destination;
 
-    private LocalDateTime timestamp = LocalDateTime.now();
+    @Column(name = "timestamp", nullable = false, updatable = false)
+    private LocalDateTime timestamp;
 
-    @ManyToOne
-    @JoinColumn(name = "created_by")
-    private User createdBy;
+    @PrePersist
+    public void onCreate() {
+        this.timestamp = LocalDateTime.now();
+    }
+
+    @Column(nullable = false)
+    private String status;
 }

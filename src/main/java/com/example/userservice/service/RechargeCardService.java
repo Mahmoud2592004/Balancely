@@ -1,9 +1,7 @@
 package com.example.userservice.service;
 
-import com.example.userservice.entity.RechargeCard;
-import com.example.userservice.entity.User;
-import com.example.userservice.repository.RechargeCardRepository;
-import com.example.userservice.repository.UserRepository;
+import com.example.userservice.entity.*;
+import com.example.userservice.repository.*;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,34 +16,66 @@ public class RechargeCardService {
 
     private final RechargeCardRepository rechargeCardRepository;
     private final UserRepository userRepository;
+    private final BalanceRepository balanceRepository;
+    private final BalanceTransactionRepository transactionRepository;
 
     @Transactional
     public List<RechargeCard> buyRechargeCards(String username, String password, BigDecimal value, int quantity) {
-        User user = userRepository.findByUsername(username)
+        User posUser = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Simple password check (in production, use hashing)
-        if (!user.getPasswordHash().equals(password)) {
+        if (!posUser.getPasswordHash().equals(password)) {
             throw new RuntimeException("Invalid password");
         }
 
-        // Fetch available cards with specified value
-        List<RechargeCard> availableCards = rechargeCardRepository
-                .findByIsUsedFalseAndValue(value);
+        Balance posBalance = balanceRepository.findByUser(posUser)
+                .orElseThrow(() -> new RuntimeException("Balance not found"));
 
-        if (availableCards.size() < quantity) {
-            throw new RuntimeException("Not enough cards of value " + value + " available");
+        BigDecimal totalCost = value.multiply(BigDecimal.valueOf(quantity));
+        if (posBalance.getCurrentBalance().compareTo(totalCost) < 0) {
+            throw new RuntimeException("Insufficient balance to buy cards");
         }
 
-        List<RechargeCard> cardsToAssign = availableCards.subList(0, quantity);
+        BalanceTransaction transaction = new BalanceTransaction();
+        transaction.setAmount(totalCost);
+        transaction.setTransactionType("card");
+        transaction.setSource(posUser);
+        transaction.setDestination(posUser);
+        transaction.setStatus("PENDING"); // Initially pending
+        transactionRepository.save(transaction);
 
-        for (RechargeCard card : cardsToAssign) {
-            card.setUsed(true);
-            card.setUsedBy(user);
-            card.setUsedAt(LocalDateTime.now());
+        try {
+            // Deduct balance
+            posBalance.setCurrentBalance(posBalance.getCurrentBalance().subtract(totalCost));
+            balanceRepository.save(posBalance);
+
+            // Assign recharge cards
+            List<RechargeCard> availableCards = rechargeCardRepository.findByIsUsedFalseAndValue(value);
+            if (availableCards.size() < quantity) {
+                throw new RuntimeException("Not enough cards of value " + value + " available");
+            }
+
+            List<RechargeCard> cardsToAssign = availableCards.subList(0, quantity);
+            for (RechargeCard card : cardsToAssign) {
+                card.setUsed(true);
+                card.setUsedBy(posUser);
+                card.setUsedAt(LocalDateTime.now());
+            }
+
+            rechargeCardRepository.saveAll(cardsToAssign);
+
+            transaction.setStatus("SUCCESS");
+            transactionRepository.save(transaction);
+
+            return cardsToAssign;
+        } catch (Exception e) {
+            // Store the failed transaction with reason
+            transaction.setStatus("FAILED");
+            transactionRepository.save(transaction);
+
+            // Optionally: revert any changes or log the error
+            throw new RuntimeException("Transaction failed: " + e.getMessage(), e);
         }
-
-        return rechargeCardRepository.saveAll(cardsToAssign);
     }
 
 
