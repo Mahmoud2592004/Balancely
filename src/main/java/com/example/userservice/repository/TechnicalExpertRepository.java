@@ -21,10 +21,11 @@ public interface TechnicalExpertRepository extends JpaRepository<BalanceTransact
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
 
-    @Query("SELECT AVG(bt.executionTime) FROM BalanceTransaction bt " +
+    @Query("SELECT COALESCE(AVG(bt.executionTime), 0) FROM BalanceTransaction bt " +
             "JOIN bt.source s " +
             "JOIN s.location l " +
             "WHERE bt.executionTime IS NOT NULL " +
+            "AND bt.executionTime > 0 " +
             "AND (:locationId IS NULL OR l.id = :locationId) " +
             "AND bt.timestamp BETWEEN :startDate AND :endDate")
     Double findAverageExecutionTime(
@@ -50,34 +51,34 @@ public interface TechnicalExpertRepository extends JpaRepository<BalanceTransact
             @Param("endDate") LocalDateTime endDate);
 
     @Query("SELECT NEW com.example.userservice.dto.PerformanceMetricsDTO( " +
-            "FUNCTION('WEEK', bt.timestamp), " +
+            "EXTRACT(WEEK FROM bt.timestamp), " +
             "COUNT(bt), " +
             "SUM(CASE WHEN bt.status = 'FAILED' THEN 1 ELSE 0 END), " +
-            "AVG(bt.executionTime)) " +
+            "COALESCE(AVG(bt.executionTime), 0)) " +
             "FROM BalanceTransaction bt " +
             "JOIN bt.source s " +
             "JOIN s.location l " +
             "WHERE (:locationId IS NULL OR l.id = :locationId) " +
             "AND bt.timestamp BETWEEN :startDate AND :endDate " +
-            "GROUP BY FUNCTION('WEEK', bt.timestamp) " +
-            "ORDER BY FUNCTION('WEEK', bt.timestamp) DESC")
+            "GROUP BY EXTRACT(WEEK FROM bt.timestamp) " +
+            "ORDER BY EXTRACT(WEEK FROM bt.timestamp) DESC")
     List<PerformanceMetricsDTO> getWeeklyMetrics(
             @Param("locationId") Long locationId,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
 
     @Query("SELECT NEW com.example.userservice.dto.PerformanceMetricsDTO( " +
-            "FUNCTION('MONTH', bt.timestamp), " +
+            "EXTRACT(MONTH FROM bt.timestamp), " +
             "COUNT(bt), " +
             "SUM(CASE WHEN bt.status = 'FAILED' THEN 1 ELSE 0 END), " +
-            "AVG(bt.executionTime)) " +
+            "COALESCE(AVG(bt.executionTime), 0)) " +
             "FROM BalanceTransaction bt " +
             "JOIN bt.source s " +
             "JOIN s.location l " +
             "WHERE (:locationId IS NULL OR l.id = :locationId) " +
             "AND bt.timestamp BETWEEN :startDate AND :endDate " +
-            "GROUP BY FUNCTION('MONTH', bt.timestamp) " +
-            "ORDER BY FUNCTION('MONTH', bt.timestamp) DESC")
+            "GROUP BY EXTRACT(MONTH FROM bt.timestamp) " +
+            "ORDER BY EXTRACT(MONTH FROM bt.timestamp) DESC")
     List<PerformanceMetricsDTO> getMonthlyMetrics(
             @Param("locationId") Long locationId,
             @Param("startDate") LocalDateTime startDate,
