@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDateTime;
 
 @Service
@@ -24,10 +25,13 @@ public class AgentService {
 
     @Transactional
     public String rechargePOSBalance(BalanceRechargeRequest request) {
+        LocalDateTime transactionStart = LocalDateTime.now();
+
         BalanceTransaction transaction = new BalanceTransaction();
         transaction.setTransactionType("recharge");
         transaction.setAmount(request.getAmount());
-        transaction.setTimestamp(LocalDateTime.now()); // assuming field is called timestamp in DB
+        transaction.setStartTime(transactionStart);
+        transaction.setStatus("PENDING");
 
         try {
             User agent = userRepository.findByUsername(request.getAgentUsername())
@@ -50,7 +54,8 @@ public class AgentService {
                 throw new RuntimeException("Insufficient agent balance");
             }
 
-            // All checks passed
+            // Process transaction
+            LocalDateTime processStart = LocalDateTime.now();
             agentBalance.setCurrentBalance(agentBalance.getCurrentBalance().subtract(request.getAmount()));
             posBalance.setCurrentBalance(posBalance.getCurrentBalance().add(request.getAmount()));
 
@@ -60,23 +65,25 @@ public class AgentService {
             transaction.setSource(agent);
             transaction.setDestination(pos);
             transaction.setStatus("SUCCESS");
+            transaction.setEndTime(LocalDateTime.now());
+            transaction.setExecutionTime(Duration.between(transactionStart, transaction.getEndTime()).toMillis());
             transactionRepository.save(transaction);
 
             return "Recharge successful. POS balance increased by " + request.getAmount();
         } catch (Exception ex) {
-            // Try to log failed transaction
+            // Log failed transaction
             try {
                 User agent = userRepository.findByUsername(request.getAgentUsername()).orElse(null);
                 User pos = userRepository.findByUsername(request.getPosUsername()).orElse(null);
-                if (agent != null) transaction.setSource(agent);
-                if (pos != null) transaction.setDestination(pos);
+                transaction.setSource(agent);
+                transaction.setDestination(pos);
             } catch (Exception ignore) {}
 
             transaction.setStatus("FAILED");
+            transaction.setEndTime(LocalDateTime.now());
+            transaction.setExecutionTime(Duration.between(transactionStart, transaction.getEndTime()).toMillis());
             transactionRepository.save(transaction);
-            throw ex; // optionally rethrow or return error
+            throw ex;
         }
     }
-
-
 }

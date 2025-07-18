@@ -11,6 +11,7 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 
 @Service
@@ -26,9 +27,12 @@ public class AdminService {
         BalanceTransaction transaction = new BalanceTransaction();
         transaction.setTransactionType("admin-recharge");
         transaction.setAmount(request.getAmount());
-        transaction.setTimestamp(LocalDateTime.now());
+        transaction.setStartTime(LocalDateTime.now());
+        transaction.setStatus("PENDING");
 
         try {
+            LocalDateTime processStart = LocalDateTime.now();
+
             User admin = userRepository.findByUsername(request.getAdminUsername())
                     .orElseThrow(() -> new RuntimeException("Admin not found"));
 
@@ -52,18 +56,20 @@ public class AdminService {
             // Process transaction
             adminBalance.setCurrentBalance(adminBalance.getCurrentBalance().subtract(request.getAmount()));
             agentBalance.setCurrentBalance(agentBalance.getCurrentBalance().add(request.getAmount()));
-
             balanceRepository.save(adminBalance);
             balanceRepository.save(agentBalance);
 
             transaction.setSource(admin);
             transaction.setDestination(agent);
             transaction.setStatus("SUCCESS");
-            transactionRepository.save(transaction);
+            transaction.setEndTime(LocalDateTime.now());
+            transaction.setExecutionTime(Duration.between(processStart, transaction.getEndTime()).toMillis());
+
+            transactionRepository.save(transaction); // ✅ Save after setting required fields
 
             return "Recharge successful. Agent balance increased by " + request.getAmount();
         } catch (Exception ex) {
-            // Log failed transaction
+            // Handle error case and set source/destination if available
             try {
                 User admin = userRepository.findByUsername(request.getAdminUsername()).orElse(null);
                 User agent = userRepository.findByUsername(request.getAgentUsername()).orElse(null);
@@ -72,6 +78,10 @@ public class AdminService {
             } catch (Exception ignored) {}
 
             transaction.setStatus("FAILED");
+            transaction.setEndTime(LocalDateTime.now());
+            if (transaction.getStartTime() != null) {
+                transaction.setExecutionTime(Duration.between(transaction.getStartTime(), transaction.getEndTime()).toMillis());
+            }
             transactionRepository.save(transaction);
             throw ex;
         }

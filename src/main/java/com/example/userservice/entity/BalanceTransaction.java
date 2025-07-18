@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDateTime;
 
 @Entity
@@ -34,9 +35,25 @@ public class BalanceTransaction {
     @Column(name = "timestamp", nullable = false, updatable = false)
     private LocalDateTime timestamp;
 
+    @Column(name = "start_time")
+    private LocalDateTime startTime;
+
+    @Column(name = "end_time")
+    private LocalDateTime endTime;
+
+    @Column(name = "execution_time")
+    private Long executionTime; // in milliseconds
+
     @PrePersist
     public void onCreate() {
         this.timestamp = LocalDateTime.now();
+    }
+
+    @PostPersist
+    public void calculateDuration() {
+        if (startTime != null && endTime != null) {
+            this.executionTime = Duration.between(startTime, endTime).toMillis();
+        }
     }
 
     @Column(nullable = false)
