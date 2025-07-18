@@ -64,6 +64,10 @@ public class AdminService {
             transaction.setStatus("SUCCESS");
             transaction.setEndTime(LocalDateTime.now());
             transaction.setExecutionTime(Duration.between(processStart, transaction.getEndTime()).toMillis());
+//            transaction.setIpAddress(request.getIpAddress());
+//            transaction.setDeviceHash(request.getDeviceHash());
+//            transaction.setLocation(request.getLocation());
+
 
             transactionRepository.save(transaction); // ✅ Save after setting required fields
 

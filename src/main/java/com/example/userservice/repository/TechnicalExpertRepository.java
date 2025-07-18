@@ -14,10 +14,10 @@ public interface TechnicalExpertRepository extends JpaRepository<BalanceTransact
             "JOIN bt.source s " +
             "JOIN s.location l " +
             "WHERE bt.status = 'FAILED' " +
-            "AND (:locationId IS NULL OR l.id = :locationId) " +
+            "AND (COALESCE(:locationIds) IS NULL OR l.id IN :locationIds) " + // Changed to IN clause
             "AND bt.timestamp BETWEEN :startDate AND :endDate")
     List<BalanceTransaction> findFailedTransactions(
-            @Param("locationId") Long locationId,
+            @Param("locationIds") List<Long> locationIds, // Changed to List<Long>
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
 
@@ -26,10 +26,10 @@ public interface TechnicalExpertRepository extends JpaRepository<BalanceTransact
             "JOIN s.location l " +
             "WHERE bt.executionTime IS NOT NULL " +
             "AND bt.executionTime > 0 " +
-            "AND (:locationId IS NULL OR l.id = :locationId) " +
+            "AND (COALESCE(:locationIds) IS NULL OR l.id IN :locationIds) " + // Changed to IN clause
             "AND bt.timestamp BETWEEN :startDate AND :endDate")
     Double findAverageExecutionTime(
-            @Param("locationId") Long locationId,
+            @Param("locationIds") List<Long> locationIds, // Changed to List<Long>
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
 
@@ -41,12 +41,12 @@ public interface TechnicalExpertRepository extends JpaRepository<BalanceTransact
             "FROM BalanceTransaction bt " +
             "JOIN bt.source s " +
             "JOIN s.location l " +
-            "WHERE (:locationId IS NULL OR l.id = :locationId) " +
+            "WHERE (COALESCE(:locationIds) IS NULL OR l.id IN :locationIds) " + // Changed to IN clause
             "AND bt.timestamp BETWEEN :startDate AND :endDate " +
             "GROUP BY FUNCTION('DATE', bt.timestamp) " +
             "ORDER BY FUNCTION('DATE', bt.timestamp) DESC")
     List<PerformanceMetricsDTO> getDailyMetrics(
-            @Param("locationId") Long locationId,
+            @Param("locationIds") List<Long> locationIds, // Changed to List<Long>
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
 
@@ -58,12 +58,12 @@ public interface TechnicalExpertRepository extends JpaRepository<BalanceTransact
             "FROM BalanceTransaction bt " +
             "JOIN bt.source s " +
             "JOIN s.location l " +
-            "WHERE (:locationId IS NULL OR l.id = :locationId) " +
+            "WHERE (COALESCE(:locationIds) IS NULL OR l.id IN :locationIds) " + // Changed to IN clause
             "AND bt.timestamp BETWEEN :startDate AND :endDate " +
             "GROUP BY EXTRACT(WEEK FROM bt.timestamp) " +
             "ORDER BY EXTRACT(WEEK FROM bt.timestamp) DESC")
     List<PerformanceMetricsDTO> getWeeklyMetrics(
-            @Param("locationId") Long locationId,
+            @Param("locationIds") List<Long> locationIds, // Changed to List<Long>
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
 
@@ -75,12 +75,12 @@ public interface TechnicalExpertRepository extends JpaRepository<BalanceTransact
             "FROM BalanceTransaction bt " +
             "JOIN bt.source s " +
             "JOIN s.location l " +
-            "WHERE (:locationId IS NULL OR l.id = :locationId) " +
+            "WHERE (COALESCE(:locationIds) IS NULL OR l.id IN :locationIds) " + // Changed to IN clause
             "AND bt.timestamp BETWEEN :startDate AND :endDate " +
             "GROUP BY EXTRACT(MONTH FROM bt.timestamp) " +
             "ORDER BY EXTRACT(MONTH FROM bt.timestamp) DESC")
     List<PerformanceMetricsDTO> getMonthlyMetrics(
-            @Param("locationId") Long locationId,
+            @Param("locationIds") List<Long> locationIds, // Changed to List<Long>
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
 }

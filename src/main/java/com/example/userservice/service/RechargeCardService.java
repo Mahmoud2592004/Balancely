@@ -46,6 +46,8 @@ public class RechargeCardService {
         transaction.setDestination(posUser);
         transaction.setStatus("PENDING");
         transaction.setStartTime(transactionStart);
+
+
         transactionRepository.save(transaction);
 
         try {
@@ -72,6 +74,9 @@ public class RechargeCardService {
             transaction.setStatus("SUCCESS");
             transaction.setEndTime(LocalDateTime.now());
             transaction.setExecutionTime(Duration.between(transactionStart, transaction.getEndTime()).toMillis());
+//        transaction.setIpAddress(request.getIpAddress());
+//        transaction.setDeviceHash(request.getDeviceHash());
+//        transaction.setLocation(request.getLocation());
             transactionRepository.save(transaction);
 
             return cardsToAssign;
@@ -80,6 +85,9 @@ public class RechargeCardService {
             transaction.setStatus("FAILED");
             transaction.setEndTime(LocalDateTime.now());
             transaction.setExecutionTime(Duration.between(transactionStart, transaction.getEndTime()).toMillis());
+//        transaction.setIpAddress(request.getIpAddress());
+//        transaction.setDeviceHash(request.getDeviceHash());
+//        transaction.setLocation(request.getLocation());
             transactionRepository.save(transaction);
 
             throw new RuntimeException("Transaction failed: " + e.getMessage(), e);

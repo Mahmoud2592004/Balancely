@@ -10,4 +10,7 @@ public class BalanceRechargeRequest {
     private String agentPassword;
     private String posUsername;
     private BigDecimal amount;
+//    private String ipAddress;
+//    private String deviceHash;
+//    private String location;
 }

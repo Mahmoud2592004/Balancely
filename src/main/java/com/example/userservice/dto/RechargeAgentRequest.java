@@ -12,4 +12,7 @@ public class RechargeAgentRequest {
     private String adminPassword;
     private String agentUsername;
     private BigDecimal amount;
+//    private String ipAddress;
+//    private String deviceHash;
+//    private String location;
 }

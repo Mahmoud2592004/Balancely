@@ -44,6 +44,22 @@ public class BalanceTransaction {
     @Column(name = "execution_time")
     private Long executionTime; // in milliseconds
 
+    @Column(name = "ip_address")
+    private String ipAddress;
+
+    @Column(name = "device_hash")
+    private String deviceHash;
+
+    @Column(name = "location")
+    private String location;
+
+    @Column(name = "fraud_score")
+    private Double fraudScore;
+
+    @Column(name = "is_fraud")
+    private Boolean isFraud = false;
+
+
     @PrePersist
     public void onCreate() {
         this.timestamp = LocalDateTime.now();
