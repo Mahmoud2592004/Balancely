@@ -57,7 +57,7 @@ public class UserService {
         if (request.getFullName() == null || request.getFullName().isBlank()) {
             throw new ValidationException("INVALID_FULL_NAME", "Full name cannot be empty");
         }
-        if (request.getPhoneNumber() == null || !request.getPhoneNumber().matches("\\+?[1-9]\\d{1,14}")) {
+        if (request.getPhoneNumber() == null || !request.getPhoneNumber().matches("^(?:\\+20)?(?:10|11|12|15|17|18|19)\\d{8}$")) {
             throw new ValidationException("INVALID_PHONE_NUMBER", "Phone number is invalid");
         }
         if (request.getRoleId() == null) {

@@ -54,16 +54,16 @@ public class AgentService {
 
             transaction.setSource(agent);
             transaction.setDestination(pos);
+            transaction.setUser(agent); // Set the user field to the agent
             transaction.setStatus("SUCCESS");
             transaction.setEndTime(LocalDateTime.now());
-            transaction.setExecutionTime(Duration.between(transactionStart, transaction.getEndTime()).toMillis());
+            // Execution time is calculated in @PostPersist, no need to set here
             transactionRepository.save(transaction);
 
             return "Recharge successful. POS balance increased by " + request.getAmount();
         } catch (Exception ex) {
             transaction.setStatus("FAILED");
             transaction.setEndTime(LocalDateTime.now());
-            transaction.setExecutionTime(Duration.between(transactionStart, transaction.getEndTime()).toMillis());
             transactionRepository.save(transaction);
             throw ex;
         }

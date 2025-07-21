@@ -17,7 +17,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
-@RequestMapping("/admin")
+@RequestMapping("/api/admin")
 @RequiredArgsConstructor
 public class AdminController {
 
@@ -40,7 +40,11 @@ public class AdminController {
     }
 
     @PostMapping("/generate-cards")
-    public ResponseEntity<List<RechargeCard>> generateCards(@RequestBody GenerateCardsRequest request) {
+    public ResponseEntity<List<RechargeCard>> generateCards(
+            Authentication authentication,
+            @RequestBody GenerateCardsRequest request) {
+        String adminUsername = authentication.getName();
+        request.setAdminUsername(adminUsername); // Set adminUsername from Authentication
         List<RechargeCard> cards = adminService.generateRechargeCards(request);
         return ResponseEntity.ok(cards);
     }

@@ -9,7 +9,6 @@ import java.math.BigDecimal;
 @Setter
 public class GenerateCardsRequest {
     private String adminUsername;
-    private String adminPassword;
     private BigDecimal cardValue;
     private int quantity;
 }
