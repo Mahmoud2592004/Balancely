@@ -2,6 +2,7 @@ package com.example.userservice.dto;
 
 import lombok.Getter;
 import lombok.Setter;
+
 import java.math.BigDecimal;
 
 @Getter
@@ -12,7 +13,7 @@ public class CardStatisticsDTO {
     private long usedCards;
     private long unusedCards;
 
-    // Constructor for value-specific statistics
+    // Constructor for grouped statistics (by value)
     public CardStatisticsDTO(BigDecimal cardValue, long totalCards, long usedCards) {
         this.cardValue = cardValue;
         this.totalCards = totalCards;
@@ -22,7 +23,7 @@ public class CardStatisticsDTO {
 
     // Constructor for overall statistics
     public CardStatisticsDTO(long totalCards, long usedCards) {
-        this.cardValue = BigDecimal.ZERO; // Use zero for overall stats
+        this.cardValue = BigDecimal.ZERO; // Default for overall stats
         this.totalCards = totalCards;
         this.usedCards = usedCards;
         this.unusedCards = totalCards - usedCards;

@@ -1,5 +1,6 @@
 package com.example.userservice.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -37,5 +38,6 @@ public class User {
     private Location location;
 
     @OneToMany(mappedBy = "usedBy")
+    @JsonIgnore
     private List<RechargeCard> rechargeCards;
 }
