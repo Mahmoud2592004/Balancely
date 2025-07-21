@@ -4,6 +4,7 @@ import com.example.userservice.dto.CardStatisticsDTO;
 import com.example.userservice.dto.GenerateCardsRequest;
 import com.example.userservice.dto.RechargeAgentRequest;
 import com.example.userservice.entity.*;
+import com.example.userservice.exception.*;
 import com.example.userservice.repository.*;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,8 @@ public class AdminService {
 
     @Transactional
     public String rechargeAgentBalance(String adminUsername, RechargeAgentRequest request) {
+        validateRechargeAgentRequest(request);
+
         BalanceTransaction transaction = new BalanceTransaction();
         transaction.setTransactionType("admin-recharge");
         transaction.setAmount(request.getAmount());
@@ -36,19 +39,19 @@ public class AdminService {
             LocalDateTime processStart = LocalDateTime.now();
 
             User admin = userRepository.findByUsername(adminUsername)
-                    .orElseThrow(() -> new RuntimeException("Admin not found"));
+                    .orElseThrow(() -> new UserNotFoundException("Admin with username '" + adminUsername + "' not found"));
 
             User agent = userRepository.findByUsername(request.getAgentUsername())
-                    .orElseThrow(() -> new RuntimeException("Agent not found"));
+                    .orElseThrow(() -> new UserNotFoundException("Agent with username '" + request.getAgentUsername() + "' not found"));
 
             Balance adminBalance = balanceRepository.findByUser(admin)
-                    .orElseThrow(() -> new RuntimeException("Admin balance not found"));
+                    .orElseThrow(() -> new ResourceNotFoundException("ADMIN_BALANCE_NOT_FOUND", "Balance for admin not found"));
 
             Balance agentBalance = balanceRepository.findByUser(agent)
-                    .orElseThrow(() -> new RuntimeException("Agent balance not found"));
+                    .orElseThrow(() -> new ResourceNotFoundException("AGENT_BALANCE_NOT_FOUND", "Balance for agent not found"));
 
             if (adminBalance.getCurrentBalance().compareTo(request.getAmount()) < 0) {
-                throw new RuntimeException("Insufficient admin balance");
+                throw new InsufficientBalanceException("INSUFFICIENT_ADMIN_BALANCE", "Admin has insufficient balance to perform recharge");
             }
 
             adminBalance.setCurrentBalance(adminBalance.getCurrentBalance().subtract(request.getAmount()));
@@ -75,8 +78,19 @@ public class AdminService {
         }
     }
 
+    private void validateRechargeAgentRequest(RechargeAgentRequest request) {
+        if (request.getAgentUsername() == null || request.getAgentUsername().isBlank()) {
+            throw new ValidationException("INVALID_AGENT_USERNAME", "Agent username cannot be empty");
+        }
+        if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new ValidationException("INVALID_AMOUNT", "Recharge amount must be greater than zero");
+        }
+    }
+
     @Transactional
     public List<RechargeCard> generateRechargeCards(GenerateCardsRequest request) {
+        validateGenerateCardsRequest(request);
+
         List<RechargeCard> cards = new ArrayList<>();
         for (int i = 0; i < request.getQuantity(); i++) {
             RechargeCard card = new RechargeCard();
@@ -88,12 +102,29 @@ public class AdminService {
         return rechargeCardRepository.saveAll(cards);
     }
 
+    private void validateGenerateCardsRequest(GenerateCardsRequest request) {
+        if (request.getAdminUsername() == null || request.getAdminUsername().isBlank()) {
+            throw new ValidationException("INVALID_ADMIN_USERNAME", "Admin username cannot be empty");
+        }
+        if (request.getCardValue() == null || request.getCardValue().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new ValidationException("INVALID_CARD_VALUE", "Card value must be greater than zero");
+        }
+        if (request.getQuantity() <= 0) {
+            throw new ValidationException("INVALID_QUANTITY", "Quantity must be greater than zero");
+        }
+    }
+
     private String generateUniqueCardCode() {
         String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
         SecureRandom random = new SecureRandom();
         String code;
+        int maxAttempts = 10;
+        int attempts = 0;
 
         do {
+            if (attempts++ >= maxAttempts) {
+                throw new ValidationException("CARD_CODE_GENERATION_FAILED", "Failed to generate unique card code after multiple attempts");
+            }
             StringBuilder sb = new StringBuilder(16);
             for (int i = 0; i < 16; i++) {
                 sb.append(characters.charAt(random.nextInt(characters.length())));
@@ -109,6 +140,9 @@ public class AdminService {
     }
 
     public CardStatisticsDTO getCardStatisticsByValue(BigDecimal value) {
+        if (value == null || value.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new ValidationException("INVALID_CARD_VALUE", "Card value must be greater than zero");
+        }
         return rechargeCardRepository.getCardStatisticsByValue(value);
     }
 

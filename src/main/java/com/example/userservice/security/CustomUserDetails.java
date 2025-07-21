@@ -57,4 +57,9 @@ public class CustomUserDetails implements UserDetails {
     public String getRole() {
         return user.getRole().getName();
     }
+
+    // Add getter for the User entity to access fullName
+    public User getUser() {
+        return user;
+    }
 }

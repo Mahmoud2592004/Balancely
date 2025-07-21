@@ -2,6 +2,7 @@ package com.example.userservice.service;
 
 import com.example.userservice.dto.BalanceRechargeRequest;
 import com.example.userservice.entity.*;
+import com.example.userservice.exception.*;
 import com.example.userservice.repository.*;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,8 @@ public class AgentService {
 
     @Transactional
     public String rechargePOSBalance(String agentUsername, BalanceRechargeRequest request) {
+        validateBalanceRechargeRequest(request);
+
         LocalDateTime transactionStart = LocalDateTime.now();
         BalanceTransaction transaction = new BalanceTransaction();
         transaction.setTransactionType("recharge");
@@ -29,19 +32,19 @@ public class AgentService {
 
         try {
             User agent = userRepository.findByUsername(agentUsername)
-                    .orElseThrow(() -> new RuntimeException("Agent not found"));
+                    .orElseThrow(() -> new UserNotFoundException("Agent with username '" + agentUsername + "' not found"));
 
             User pos = userRepository.findByUsername(request.getPosUsername())
-                    .orElseThrow(() -> new RuntimeException("POS user not found"));
+                    .orElseThrow(() -> new UserNotFoundException("POS user with username '" + request.getPosUsername() + "' not found"));
 
             Balance agentBalance = balanceRepository.findByUser(agent)
-                    .orElseThrow(() -> new RuntimeException("Agent balance not found"));
+                    .orElseThrow(() -> new ResourceNotFoundException("AGENT_BALANCE_NOT_FOUND", "Balance for agent not found"));
 
             Balance posBalance = balanceRepository.findByUser(pos)
-                    .orElseThrow(() -> new RuntimeException("POS balance not found"));
+                    .orElseThrow(() -> new ResourceNotFoundException("POS_BALANCE_NOT_FOUND", "Balance for POS user not found"));
 
             if (agentBalance.getCurrentBalance().compareTo(request.getAmount()) < 0) {
-                throw new RuntimeException("Insufficient agent balance");
+                throw new InsufficientBalanceException("INSUFFICIENT_AGENT_BALANCE", "Agent has insufficient balance to perform recharge");
             }
 
             agentBalance.setCurrentBalance(agentBalance.getCurrentBalance().subtract(request.getAmount()));
@@ -63,6 +66,15 @@ public class AgentService {
             transaction.setExecutionTime(Duration.between(transactionStart, transaction.getEndTime()).toMillis());
             transactionRepository.save(transaction);
             throw ex;
+        }
+    }
+
+    private void validateBalanceRechargeRequest(BalanceRechargeRequest request) {
+        if (request.getPosUsername() == null || request.getPosUsername().isBlank()) {
+            throw new ValidationException("INVALID_POS_USERNAME", "POS username cannot be empty");
+        }
+        if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new ValidationException("INVALID_AMOUNT", "Recharge amount must be greater than zero");
         }
     }
 }

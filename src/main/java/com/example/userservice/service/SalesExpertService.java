@@ -1,6 +1,7 @@
 package com.example.userservice.service;
 
 import com.example.userservice.dto.SalesStatisticsDTO;
+import com.example.userservice.exception.ValidationException;
 import com.example.userservice.repository.SalesExpertRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,6 +19,7 @@ public class SalesExpertService {
     private final SalesExpertRepository salesExpertRepository;
 
     public List<SalesStatisticsDTO> getDailySales(String username, LocalDate startDate, LocalDate endDate, List<Long> locationIds) {
+        validateSalesRequest(username, startDate, endDate, locationIds);
         LocalDateTime start = getStartDateTime(startDate);
         LocalDateTime end = getEndDateTime(endDate);
         List<Object[]> rawData = salesExpertRepository.getDailySalesData(
@@ -28,6 +30,7 @@ public class SalesExpertService {
     }
 
     public List<SalesStatisticsDTO> getWeeklySales(String username, LocalDate startDate, LocalDate endDate, List<Long> locationIds) {
+        validateSalesRequest(username, startDate, endDate, locationIds);
         LocalDateTime start = getStartDateTime(startDate);
         LocalDateTime end = getEndDateTime(endDate);
         List<Object[]> rawData = salesExpertRepository.getWeeklySalesData(
@@ -38,6 +41,7 @@ public class SalesExpertService {
     }
 
     public List<SalesStatisticsDTO> getMonthlySales(String username, LocalDate startDate, LocalDate endDate, List<Long> locationIds) {
+        validateSalesRequest(username, startDate, endDate, locationIds);
         LocalDateTime start = getStartDateTime(startDate);
         LocalDateTime end = getEndDateTime(endDate);
         List<Object[]> rawData = salesExpertRepository.getMonthlySalesData(
@@ -45,6 +49,18 @@ public class SalesExpertService {
                 start, end
         );
         return transformData(rawData);
+    }
+
+    private void validateSalesRequest(String username, LocalDate startDate, LocalDate endDate, List<Long> locationIds) {
+        if (username == null || username.isBlank()) {
+            throw new ValidationException("INVALID_USERNAME", "Username cannot be empty");
+        }
+        if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
+            throw new ValidationException("INVALID_DATE_RANGE", "Start date cannot be after end date");
+        }
+        if (locationIds != null && locationIds.stream().anyMatch(id -> id == null || id <= 0)) {
+            throw new ValidationException("INVALID_LOCATION_IDS", "Location IDs must be valid positive numbers");
+        }
     }
 
     private LocalDateTime getStartDateTime(LocalDate startDate) {

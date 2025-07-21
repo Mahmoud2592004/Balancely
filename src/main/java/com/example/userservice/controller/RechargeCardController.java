@@ -5,9 +5,11 @@ import com.example.userservice.dto.CardStatisticsDTO;
 import com.example.userservice.entity.RechargeCard;
 import com.example.userservice.service.RechargeCardService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import javax.validation.Valid;
 import java.math.BigDecimal;
 import java.util.List;
 
@@ -19,40 +21,41 @@ public class RechargeCardController {
     private final RechargeCardService rechargeCardService;
 
     @PostMapping("/buy")
-    public List<RechargeCard> buyCards(
+    public ResponseEntity<List<RechargeCard>> buyCards(
             Authentication authentication,
-            @RequestBody BuyCardRequest request) {
+            @Valid @RequestBody BuyCardRequest request) {
         String posUsername = authentication.getName();
-        return rechargeCardService.buyRechargeCards(
-                posUsername,
-                request.getCardValue(),
-                request.getQuantity()
-        );
+        List<RechargeCard> cards = rechargeCardService.buyRechargeCards(posUsername, request);
+        return ResponseEntity.ok(cards);
     }
 
     @GetMapping("/my-cards")
-    public List<RechargeCard> getMyCards(Authentication authentication) {
+    public ResponseEntity<List<RechargeCard>> getMyCards(Authentication authentication) {
         String posUsername = authentication.getName();
-        return rechargeCardService.getMyCards(posUsername);
+        List<RechargeCard> cards = rechargeCardService.getMyCards(posUsername);
+        return ResponseEntity.ok(cards);
     }
 
     @GetMapping("/my-statistics")
-    public List<CardStatisticsDTO> getMyCardStatistics(Authentication authentication) {
+    public ResponseEntity<List<CardStatisticsDTO>> getMyCardStatistics(Authentication authentication) {
         String posUsername = authentication.getName();
-        return rechargeCardService.getMyCardStatistics(posUsername);
+        List<CardStatisticsDTO> statistics = rechargeCardService.getMyCardStatistics(posUsername);
+        return ResponseEntity.ok(statistics);
     }
 
     @GetMapping("/my-statistics/{value}")
-    public CardStatisticsDTO getMyCardStatisticsByValue(
+    public ResponseEntity<CardStatisticsDTO> getMyCardStatisticsByValue(
             Authentication authentication,
             @PathVariable BigDecimal value) {
         String posUsername = authentication.getName();
-        return rechargeCardService.getMyCardStatisticsByValue(posUsername, value);
+        CardStatisticsDTO statistics = rechargeCardService.getMyCardStatisticsByValue(posUsername, value);
+        return ResponseEntity.ok(statistics);
     }
 
     @GetMapping("/my-statistics/overall")
-    public CardStatisticsDTO getMyOverallCardStatistics(Authentication authentication) {
+    public ResponseEntity<CardStatisticsDTO> getMyOverallCardStatistics(Authentication authentication) {
         String posUsername = authentication.getName();
-        return rechargeCardService.getMyOverallCardStatistics(posUsername);
+        CardStatisticsDTO statistics = rechargeCardService.getMyOverallCardStatistics(posUsername);
+        return ResponseEntity.ok(statistics);
     }
 }
