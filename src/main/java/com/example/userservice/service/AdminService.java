@@ -1,29 +1,31 @@
 package com.example.userservice.service;
 
+import com.example.userservice.dto.CardStatisticsDTO;
+import com.example.userservice.dto.GenerateCardsRequest;
 import com.example.userservice.dto.RechargeAgentRequest;
-import com.example.userservice.entity.Balance;
-import com.example.userservice.entity.BalanceTransaction;
-import com.example.userservice.entity.User;
-import com.example.userservice.repository.BalanceRepository;
-import com.example.userservice.repository.BalanceTransactionRepository;
-import com.example.userservice.repository.UserRepository;
+import com.example.userservice.entity.*;
+import com.example.userservice.repository.*;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class AdminService {
-
     private final UserRepository userRepository;
     private final BalanceRepository balanceRepository;
     private final BalanceTransactionRepository transactionRepository;
+    private final RechargeCardRepository rechargeCardRepository;
 
     @Transactional
-    public String rechargeAgentBalance(RechargeAgentRequest request) {
+    public String rechargeAgentBalance(String adminUsername, RechargeAgentRequest request) {
         BalanceTransaction transaction = new BalanceTransaction();
         transaction.setTransactionType("admin-recharge");
         transaction.setAmount(request.getAmount());
@@ -33,12 +35,8 @@ public class AdminService {
         try {
             LocalDateTime processStart = LocalDateTime.now();
 
-            User admin = userRepository.findByUsername(request.getAdminUsername())
+            User admin = userRepository.findByUsername(adminUsername)
                     .orElseThrow(() -> new RuntimeException("Admin not found"));
-
-            if (!admin.getPasswordHash().equals(request.getAdminPassword())) {
-                throw new RuntimeException("Invalid admin password");
-            }
 
             User agent = userRepository.findByUsername(request.getAgentUsername())
                     .orElseThrow(() -> new RuntimeException("Agent not found"));
@@ -53,7 +51,6 @@ public class AdminService {
                 throw new RuntimeException("Insufficient admin balance");
             }
 
-            // Process transaction
             adminBalance.setCurrentBalance(adminBalance.getCurrentBalance().subtract(request.getAmount()));
             agentBalance.setCurrentBalance(agentBalance.getCurrentBalance().add(request.getAmount()));
             balanceRepository.save(adminBalance);
@@ -64,23 +61,10 @@ public class AdminService {
             transaction.setStatus("SUCCESS");
             transaction.setEndTime(LocalDateTime.now());
             transaction.setExecutionTime(Duration.between(processStart, transaction.getEndTime()).toMillis());
-//            transaction.setIpAddress(request.getIpAddress());
-//            transaction.setDeviceHash(request.getDeviceHash());
-//            transaction.setLocation(request.getLocation());
-
-
-            transactionRepository.save(transaction); // ✅ Save after setting required fields
+            transactionRepository.save(transaction);
 
             return "Recharge successful. Agent balance increased by " + request.getAmount();
         } catch (Exception ex) {
-            // Handle error case and set source/destination if available
-            try {
-                User admin = userRepository.findByUsername(request.getAdminUsername()).orElse(null);
-                User agent = userRepository.findByUsername(request.getAgentUsername()).orElse(null);
-                if (admin != null) transaction.setSource(admin);
-                if (agent != null) transaction.setDestination(agent);
-            } catch (Exception ignored) {}
-
             transaction.setStatus("FAILED");
             transaction.setEndTime(LocalDateTime.now());
             if (transaction.getStartTime() != null) {
@@ -89,5 +73,46 @@ public class AdminService {
             transactionRepository.save(transaction);
             throw ex;
         }
+    }
+
+    @Transactional
+    public List<RechargeCard> generateRechargeCards(GenerateCardsRequest request) {
+        List<RechargeCard> cards = new ArrayList<>();
+        for (int i = 0; i < request.getQuantity(); i++) {
+            RechargeCard card = new RechargeCard();
+            card.setCode(generateUniqueCardCode());
+            card.setValue(request.getCardValue());
+            card.setUsed(false);
+            cards.add(card);
+        }
+        return rechargeCardRepository.saveAll(cards);
+    }
+
+    private String generateUniqueCardCode() {
+        String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        SecureRandom random = new SecureRandom();
+        String code;
+
+        do {
+            StringBuilder sb = new StringBuilder(16);
+            for (int i = 0; i < 16; i++) {
+                sb.append(characters.charAt(random.nextInt(characters.length())));
+            }
+            code = sb.toString();
+        } while (rechargeCardRepository.existsByCode(code));
+
+        return code;
+    }
+
+    public List<CardStatisticsDTO> getCardStatistics() {
+        return rechargeCardRepository.getCardStatistics();
+    }
+
+    public CardStatisticsDTO getCardStatisticsByValue(BigDecimal value) {
+        return rechargeCardRepository.getCardStatisticsByValue(value);
+    }
+
+    public CardStatisticsDTO getOverallCardStatistics() {
+        return rechargeCardRepository.getOverallCardStatistics();
     }
 }

@@ -1,12 +1,8 @@
 package com.example.userservice.service;
 
 import com.example.userservice.dto.BalanceRechargeRequest;
-import com.example.userservice.entity.Balance;
-import com.example.userservice.entity.BalanceTransaction;
-import com.example.userservice.entity.User;
-import com.example.userservice.repository.BalanceRepository;
-import com.example.userservice.repository.BalanceTransactionRepository;
-import com.example.userservice.repository.UserRepository;
+import com.example.userservice.entity.*;
+import com.example.userservice.repository.*;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,15 +14,13 @@ import java.time.LocalDateTime;
 @Service
 @RequiredArgsConstructor
 public class AgentService {
-
     private final UserRepository userRepository;
     private final BalanceRepository balanceRepository;
     private final BalanceTransactionRepository transactionRepository;
 
     @Transactional
-    public String rechargePOSBalance(BalanceRechargeRequest request) {
+    public String rechargePOSBalance(String agentUsername, BalanceRechargeRequest request) {
         LocalDateTime transactionStart = LocalDateTime.now();
-
         BalanceTransaction transaction = new BalanceTransaction();
         transaction.setTransactionType("recharge");
         transaction.setAmount(request.getAmount());
@@ -34,12 +28,8 @@ public class AgentService {
         transaction.setStatus("PENDING");
 
         try {
-            User agent = userRepository.findByUsername(request.getAgentUsername())
+            User agent = userRepository.findByUsername(agentUsername)
                     .orElseThrow(() -> new RuntimeException("Agent not found"));
-
-            if (!agent.getPasswordHash().equals(request.getAgentPassword())) {
-                throw new RuntimeException("Invalid agent password");
-            }
 
             User pos = userRepository.findByUsername(request.getPosUsername())
                     .orElseThrow(() -> new RuntimeException("POS user not found"));
@@ -54,11 +44,8 @@ public class AgentService {
                 throw new RuntimeException("Insufficient agent balance");
             }
 
-            // Process transaction
-            LocalDateTime processStart = LocalDateTime.now();
             agentBalance.setCurrentBalance(agentBalance.getCurrentBalance().subtract(request.getAmount()));
             posBalance.setCurrentBalance(posBalance.getCurrentBalance().add(request.getAmount()));
-
             balanceRepository.save(agentBalance);
             balanceRepository.save(posBalance);
 
@@ -67,22 +54,10 @@ public class AgentService {
             transaction.setStatus("SUCCESS");
             transaction.setEndTime(LocalDateTime.now());
             transaction.setExecutionTime(Duration.between(transactionStart, transaction.getEndTime()).toMillis());
-//            transaction.setIpAddress(request.getIpAddress());
-//            transaction.setDeviceHash(request.getDeviceHash());
-//            transaction.setLocation(request.getLocation());
-
             transactionRepository.save(transaction);
 
             return "Recharge successful. POS balance increased by " + request.getAmount();
         } catch (Exception ex) {
-            // Log failed transaction
-            try {
-                User agent = userRepository.findByUsername(request.getAgentUsername()).orElse(null);
-                User pos = userRepository.findByUsername(request.getPosUsername()).orElse(null);
-                transaction.setSource(agent);
-                transaction.setDestination(pos);
-            } catch (Exception ignore) {}
-
             transaction.setStatus("FAILED");
             transaction.setEndTime(LocalDateTime.now());
             transaction.setExecutionTime(Duration.between(transactionStart, transaction.getEndTime()).toMillis());

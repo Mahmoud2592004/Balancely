@@ -1,5 +1,6 @@
 package com.example.userservice.service;
 
+import com.example.userservice.dto.CardStatisticsDTO;
 import com.example.userservice.entity.*;
 import com.example.userservice.repository.*;
 import jakarta.transaction.Transactional;
@@ -14,22 +15,16 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class RechargeCardService {
-
     private final RechargeCardRepository rechargeCardRepository;
     private final UserRepository userRepository;
     private final BalanceRepository balanceRepository;
     private final BalanceTransactionRepository transactionRepository;
 
     @Transactional
-    public List<RechargeCard> buyRechargeCards(String username, String password, BigDecimal value, int quantity) {
+    public List<RechargeCard> buyRechargeCards(String posUsername, BigDecimal value, int quantity) {
         LocalDateTime transactionStart = LocalDateTime.now();
-
-        User posUser = userRepository.findByUsername(username)
+        User posUser = userRepository.findByUsername(posUsername)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-
-        if (!posUser.getPasswordHash().equals(password)) {
-            throw new RuntimeException("Invalid password");
-        }
 
         Balance posBalance = balanceRepository.findByUser(posUser)
                 .orElseThrow(() -> new RuntimeException("Balance not found"));
@@ -46,19 +41,15 @@ public class RechargeCardService {
         transaction.setDestination(posUser);
         transaction.setStatus("PENDING");
         transaction.setStartTime(transactionStart);
-
-
         transactionRepository.save(transaction);
 
         try {
-            // Deduct balance
             posBalance.setCurrentBalance(posBalance.getCurrentBalance().subtract(totalCost));
             balanceRepository.save(posBalance);
 
-            // Assign recharge cards
             List<RechargeCard> availableCards = rechargeCardRepository.findByIsUsedFalseAndValue(value);
             if (availableCards.size() < quantity) {
-                throw new RuntimeException("Not enough cards of value " + value + " available");
+                throw new RuntimeException("Not enough cards available");
             }
 
             List<RechargeCard> cardsToAssign = availableCards.subList(0, quantity);
@@ -70,31 +61,42 @@ public class RechargeCardService {
 
             rechargeCardRepository.saveAll(cardsToAssign);
 
-            // Complete transaction
             transaction.setStatus("SUCCESS");
             transaction.setEndTime(LocalDateTime.now());
             transaction.setExecutionTime(Duration.between(transactionStart, transaction.getEndTime()).toMillis());
-//        transaction.setIpAddress(request.getIpAddress());
-//        transaction.setDeviceHash(request.getDeviceHash());
-//        transaction.setLocation(request.getLocation());
             transactionRepository.save(transaction);
 
             return cardsToAssign;
         } catch (Exception e) {
-            // Handle failed transaction
             transaction.setStatus("FAILED");
             transaction.setEndTime(LocalDateTime.now());
             transaction.setExecutionTime(Duration.between(transactionStart, transaction.getEndTime()).toMillis());
-//        transaction.setIpAddress(request.getIpAddress());
-//        transaction.setDeviceHash(request.getDeviceHash());
-//        transaction.setLocation(request.getLocation());
             transactionRepository.save(transaction);
-
             throw new RuntimeException("Transaction failed: " + e.getMessage(), e);
         }
     }
 
-    public List<RechargeCard> getMyCards(Long userId) {
-        return rechargeCardRepository.findByUsedById(userId);
+    public List<RechargeCard> getMyCards(String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return rechargeCardRepository.findByUsedById(user.getId());
+    }
+
+    public List<CardStatisticsDTO> getMyCardStatistics(String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return rechargeCardRepository.findCardStatisticsByUser(user.getId());
+    }
+
+    public CardStatisticsDTO getMyCardStatisticsByValue(String username, BigDecimal value) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return rechargeCardRepository.findCardStatisticsByUserAndValue(user.getId(), value);
+    }
+
+    public CardStatisticsDTO getMyOverallCardStatistics(String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return rechargeCardRepository.findOverallCardStatisticsByUser(user.getId());
     }
 }
