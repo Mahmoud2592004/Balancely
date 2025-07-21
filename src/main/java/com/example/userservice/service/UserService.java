@@ -7,6 +7,9 @@ import com.example.userservice.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
 
 @Service
 @RequiredArgsConstructor
@@ -17,6 +20,7 @@ public class UserService {
     private final LocationRepository locationRepository;
     private final PasswordEncoder passwordEncoder;
 
+    @Transactional
     public User createUser(CreateUserRequest request) {
         validateCreateUserRequest(request);
 
@@ -37,12 +41,21 @@ public class UserService {
         user.setRole(role);
         user.setLocation(location);
 
+        // Create and associate balance
+        Balance balance = new Balance();
+        balance.setUser(user);
+        balance.setEntityType(role.getName());
+        balance.setCurrentBalance(BigDecimal.ZERO);
+
+        // Save user first to generate ID
         User savedUser = userRepository.save(user);
 
-        Balance balance = new Balance();
-        balance.setUser(savedUser);
-        balance.setEntityType(role.getName());
+        // Then save balance
         balanceRepository.save(balance);
+
+        // Update user with balance reference
+        savedUser.setBalance(balance);
+        userRepository.save(savedUser);
 
         return savedUser;
     }
@@ -57,8 +70,8 @@ public class UserService {
         if (request.getFullName() == null || request.getFullName().isBlank()) {
             throw new ValidationException("INVALID_FULL_NAME", "Full name cannot be empty");
         }
-        if (request.getPhoneNumber() == null || !request.getPhoneNumber().matches("^(?:\\+20)?(?:10|11|12|15|17|18|19)\\d{8}$")) {
-            throw new ValidationException("INVALID_PHONE_NUMBER", "Phone number is invalid");
+        if (request.getPhoneNumber() == null || request.getPhoneNumber().isBlank()) {
+            throw new ValidationException("INVALID_PHONE_NUMBER", "Phone number cannot be empty");
         }
         if (request.getRoleId() == null) {
             throw new ValidationException("INVALID_ROLE_ID", "Role ID cannot be null");

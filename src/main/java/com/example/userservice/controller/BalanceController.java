@@ -17,7 +17,7 @@ public class BalanceController {
     private final BalanceService balanceService;
 
     @GetMapping("/balance")
-    @PreAuthorize("hasRole('ADMIN') or authentication.name == #username")
+    @PreAuthorize("isAuthenticated() and (authentication.name == #username or hasRole('ADMIN'))")
     public Balance getBalance(Authentication authentication, @RequestParam String username) {
         return balanceService.getBalance(username);
     }

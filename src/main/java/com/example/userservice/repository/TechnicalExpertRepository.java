@@ -6,15 +6,15 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
 public interface TechnicalExpertRepository extends JpaRepository<BalanceTransaction, Long> {
 
     @Query("SELECT bt FROM BalanceTransaction bt " +
-            "JOIN bt.source s " +
-            "JOIN s.location l " +
-            "JOIN bt.user u " +
+            "JOIN bt.source u " +
+            "JOIN u.location l " +
             "WHERE bt.status = 'FAILED' " +
             "AND u.username = :username " +
             "AND (:locationIds IS NULL OR l.id IN :locationIds) " +
@@ -27,9 +27,8 @@ public interface TechnicalExpertRepository extends JpaRepository<BalanceTransact
             Pageable pageable);
 
     @Query("SELECT COALESCE(AVG(bt.executionTime), 0) FROM BalanceTransaction bt " +
-            "JOIN bt.source s " +
-            "JOIN s.location l " +
-            "JOIN bt.user u " +
+            "JOIN bt.source u " +
+            "JOIN u.location l " +
             "WHERE bt.executionTime IS NOT NULL " +
             "AND bt.executionTime > 0 " +
             "AND u.username = :username " +
@@ -47,9 +46,8 @@ public interface TechnicalExpertRepository extends JpaRepository<BalanceTransact
             "SUM(CASE WHEN bt.status = 'FAILED' THEN 1 ELSE 0 END), " +
             "AVG(bt.executionTime)) " +
             "FROM BalanceTransaction bt " +
-            "JOIN bt.source s " +
-            "JOIN s.location l " +
-            "JOIN bt.user u " +
+            "JOIN bt.source u " +
+            "JOIN u.location l " +
             "WHERE u.username = :username " +
             "AND (:locationIds IS NULL OR l.id IN :locationIds) " +
             "AND bt.timestamp BETWEEN :startDate AND :endDate " +
@@ -67,9 +65,8 @@ public interface TechnicalExpertRepository extends JpaRepository<BalanceTransact
             "SUM(CASE WHEN bt.status = 'FAILED' THEN 1 ELSE 0 END), " +
             "COALESCE(AVG(bt.executionTime), 0)) " +
             "FROM BalanceTransaction bt " +
-            "JOIN bt.source s " +
-            "JOIN s.location l " +
-            "JOIN bt.user u " +
+            "JOIN bt.source u " +
+            "JOIN u.location l " +
             "WHERE u.username = :username " +
             "AND (:locationIds IS NULL OR l.id IN :locationIds) " +
             "AND bt.timestamp BETWEEN :startDate AND :endDate " +
@@ -87,9 +84,8 @@ public interface TechnicalExpertRepository extends JpaRepository<BalanceTransact
             "SUM(CASE WHEN bt.status = 'FAILED' THEN 1 ELSE 0 END), " +
             "COALESCE(AVG(bt.executionTime), 0)) " +
             "FROM BalanceTransaction bt " +
-            "JOIN bt.source s " +
-            "JOIN s.location l " +
-            "JOIN bt.user u " +
+            "JOIN bt.source u " +
+            "JOIN u.location l " +
             "WHERE u.username = :username " +
             "AND (:locationIds IS NULL OR l.id IN :locationIds) " +
             "AND bt.timestamp BETWEEN :startDate AND :endDate " +

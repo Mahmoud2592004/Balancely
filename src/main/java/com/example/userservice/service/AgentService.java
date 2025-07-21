@@ -54,7 +54,6 @@ public class AgentService {
 
             transaction.setSource(agent);
             transaction.setDestination(pos);
-            transaction.setUser(agent); // Set the user field to the agent
             transaction.setStatus("SUCCESS");
             transaction.setEndTime(LocalDateTime.now());
             // Execution time is calculated in @PostPersist, no need to set here

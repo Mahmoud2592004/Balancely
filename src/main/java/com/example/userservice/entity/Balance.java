@@ -18,15 +18,21 @@ public class Balance {
     private Long id;
 
     @OneToOne
-    @JoinColumn(name = "entity_id", referencedColumnName = "id")
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(name = "entity_type")
-    private String entityType; // "POS" or "Agent"
+    @Column(name = "entity_type", nullable = false)
+    private String entityType;
 
-    @Column(name = "current_balance")
+    @Column(name = "current_balance", nullable = false)
     private BigDecimal currentBalance = BigDecimal.ZERO;
 
-    @Column(name = "last_updated")
+    @Column(name = "last_updated", nullable = false)
     private LocalDateTime lastUpdated = LocalDateTime.now();
+
+    @PrePersist
+    @PreUpdate
+    private void updateTimestamp() {
+        lastUpdated = LocalDateTime.now();
+    }
 }

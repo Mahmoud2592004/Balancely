@@ -33,7 +33,7 @@ public class BalanceTransaction {
     private User destination;
 
     @Column(name = "timestamp", nullable = false, updatable = false)
-    private LocalDateTime timestamp;
+    private LocalDateTime timestamp = LocalDateTime.now();
 
     @Column(name = "start_time")
     private LocalDateTime startTime;
@@ -59,11 +59,8 @@ public class BalanceTransaction {
     @Column(name = "is_fraud")
     private Boolean isFraud = false;
 
-
-    @PrePersist
-    public void onCreate() {
-        this.timestamp = LocalDateTime.now();
-    }
+    @Column(nullable = false)
+    private String status;
 
     @PostPersist
     public void calculateDuration() {
@@ -71,11 +68,4 @@ public class BalanceTransaction {
             this.executionTime = Duration.between(startTime, endTime).toMillis();
         }
     }
-
-    @Column(nullable = false)
-    private String status;
-
-    @ManyToOne
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
 }
