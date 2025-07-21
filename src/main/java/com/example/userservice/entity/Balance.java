@@ -18,7 +18,7 @@ public class Balance {
     private Long id;
 
     @OneToOne
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "entity_id", nullable = false) // Changed from user_id to entity_id
     private User user;
 
     @Column(name = "entity_type", nullable = false)
