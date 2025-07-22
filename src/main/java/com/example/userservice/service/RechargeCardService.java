@@ -7,12 +7,15 @@ import com.example.userservice.exception.*;
 import com.example.userservice.repository.*;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -21,15 +24,13 @@ public class RechargeCardService {
     private final UserRepository userRepository;
     private final BalanceRepository balanceRepository;
     private final BalanceTransactionRepository transactionRepository;
+    private final TransactionService transactionService;
 
     @Transactional
     public List<RechargeCard> buyRechargeCards(String posUsername, BuyCardRequest request) {
         validateBuyCardRequest(request);
-
-        LocalDateTime transactionStart = LocalDateTime.now();
         User posUser = userRepository.findByUsername(posUsername)
                 .orElseThrow(() -> new UserNotFoundException("User with username '" + posUsername + "' not found"));
-
         Balance posBalance = balanceRepository.findByUser(posUser)
                 .orElseThrow(() -> new ResourceNotFoundException("BALANCE_NOT_FOUND", "Balance for user not found"));
 
@@ -38,46 +39,57 @@ public class RechargeCardService {
             throw new InsufficientBalanceException("INSUFFICIENT_BALANCE", "Insufficient balance to buy cards");
         }
 
+        String shard = CardShardSelector.getShard(request.getCardValue());
+        if (rechargeCardRepository.countByIsUsedFalseAndValue(request.getCardValue()) < request.getQuantity()) {
+            throw new ResourceNotFoundException("INSUFFICIENT_CARDS", "Not enough cards available for value " + request.getCardValue());
+        }
+
+        BalanceTransaction transaction = startTransaction(posUser, totalCost);
+        try {
+            updateBalance(posBalance, totalCost);
+            List<RechargeCard> cards = assignCards(posUser, request, shard);
+            completeTransaction(transaction, "SUCCESS");
+            return cards;
+        } catch (Exception e) {
+            completeTransaction(transaction, "FAILED");
+            throw e;
+        }
+    }
+
+    private BalanceTransaction startTransaction(User posUser, BigDecimal totalCost) {
         BalanceTransaction transaction = new BalanceTransaction();
         transaction.setAmount(totalCost);
         transaction.setTransactionType("card");
         transaction.setSource(posUser);
         transaction.setDestination(posUser);
         transaction.setStatus("PENDING");
-        transaction.setStartTime(transactionStart);
-        transactionRepository.save(transaction);
+        transaction.setStartTime(LocalDateTime.now());
+        transactionService.logTransaction(transaction);
+        return transaction;
+    }
 
-        try {
-            posBalance.setCurrentBalance(posBalance.getCurrentBalance().subtract(totalCost));
-            balanceRepository.save(posBalance);
+    private void updateBalance(Balance posBalance, BigDecimal totalCost) {
+        posBalance.setCurrentBalance(posBalance.getCurrentBalance().subtract(totalCost));
+        balanceRepository.save(posBalance);
+    }
 
-            List<RechargeCard> availableCards = rechargeCardRepository.findByIsUsedFalseAndValue(request.getCardValue());
-            if (availableCards.size() < request.getQuantity()) {
-                throw new ResourceNotFoundException("INSUFFICIENT_CARDS", "Not enough cards available for value " + request.getCardValue());
-            }
-
-            List<RechargeCard> cardsToAssign = availableCards.subList(0, request.getQuantity());
-            for (RechargeCard card : cardsToAssign) {
-                card.setUsed(true);
-                card.setUsedBy(posUser);
-                card.setUsedAt(LocalDateTime.now());
-            }
-
-            rechargeCardRepository.saveAll(cardsToAssign);
-
-            transaction.setStatus("SUCCESS");
-            transaction.setEndTime(LocalDateTime.now());
-            transaction.setExecutionTime(Duration.between(transactionStart, transaction.getEndTime()).toMillis());
-            transactionRepository.save(transaction);
-
-            return cardsToAssign;
-        } catch (Exception e) {
-            transaction.setStatus("FAILED");
-            transaction.setEndTime(LocalDateTime.now());
-            transaction.setExecutionTime(Duration.between(transactionStart, transaction.getEndTime()).toMillis());
-            transactionRepository.save(transaction);
-            throw e;
+    private List<RechargeCard> assignCards(User posUser, BuyCardRequest request, String shard) {
+        Pageable pageable = PageRequest.of(0, request.getQuantity());
+        List<RechargeCard> availableCards = rechargeCardRepository.findTopByIsUsedFalseAndValue(
+                request.getCardValue(), pageable);
+        if (availableCards.size() < request.getQuantity()) {
+            throw new ResourceNotFoundException("INSUFFICIENT_CARDS", "Not enough cards available for value " + request.getCardValue());
         }
+        List<Long> cardIds = availableCards.stream().map(RechargeCard::getId).collect(Collectors.toList());
+        rechargeCardRepository.updateCardsToUsed(cardIds, posUser, LocalDateTime.now());
+        return availableCards;
+    }
+
+    private void completeTransaction(BalanceTransaction transaction, String status) {
+        transaction.setStatus(status);
+        transaction.setEndTime(LocalDateTime.now());
+        transaction.setExecutionTime(Duration.between(transaction.getStartTime(), transaction.getEndTime()).toMillis());
+        transactionService.logTransaction(transaction);
     }
 
     private void validateBuyCardRequest(BuyCardRequest request) {
