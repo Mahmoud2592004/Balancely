@@ -2,7 +2,6 @@ package com.example.userservice.repository;
 
 import com.example.userservice.dto.PerformanceMetricsDTO;
 import com.example.userservice.entity.BalanceTransaction;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -23,8 +22,7 @@ public interface TechnicalExpertRepository extends JpaRepository<BalanceTransact
             @Param("username") String username,
             @Param("locationIds") List<Long> locationIds,
             @Param("startDate") LocalDateTime startDate,
-            @Param("endDate") LocalDateTime endDate,
-            Pageable pageable);
+            @Param("endDate") LocalDateTime endDate);
 
     @Query("SELECT COALESCE(AVG(bt.executionTime), 0) FROM BalanceTransaction bt " +
             "JOIN bt.source u " +

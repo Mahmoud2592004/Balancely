@@ -24,13 +24,11 @@ public class TechnicalExpertController {
             Authentication authentication,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-            @RequestParam(required = false) List<Long> locationIds,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(required = false) List<Long> locationIds) {
 
         String username = authentication.getName();
         return ResponseEntity.ok(
-                technicalExpertService.getFailedTransactions(username, startDate, endDate, locationIds, page, size)
+                technicalExpertService.getFailedTransactions(username, startDate, endDate, locationIds)
         );
     }
 

@@ -6,8 +6,6 @@ import com.example.userservice.exception.ResourceNotFoundException;
 import com.example.userservice.exception.ValidationException;
 import com.example.userservice.repository.TechnicalExpertRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -20,20 +18,19 @@ import java.util.List;
 public class TechnicalExpertService {
     private final TechnicalExpertRepository technicalExpertRepository;
 
-    public List<BalanceTransaction> getFailedTransactions(String username, LocalDate startDate, LocalDate endDate, List<Long> locationIds, int page, int size) {
-        validateTechnicalRequest(username, startDate, endDate, locationIds, page, size);
+    public List<BalanceTransaction> getFailedTransactions(String username, LocalDate startDate, LocalDate endDate, List<Long> locationIds) {
+        validateTechnicalRequest(username, startDate, endDate, locationIds);
         LocalDateTime start = getStartDateTime(startDate);
         LocalDateTime end = getEndDateTime(endDate);
-        Pageable pageable = PageRequest.of(page, size);
         return technicalExpertRepository.findFailedTransactions(
                 username,
                 locationIds != null && !locationIds.isEmpty() ? locationIds : null,
-                start, end, pageable
+                start, end
         );
     }
 
     public Double getAverageExecutionTime(String username, LocalDate startDate, LocalDate endDate, List<Long> locationIds) {
-        validateTechnicalRequest(username, startDate, endDate, locationIds, 0, 0);
+        validateTechnicalRequest(username, startDate, endDate, locationIds);
         LocalDateTime start = getStartDateTime(startDate);
         LocalDateTime end = getEndDateTime(endDate);
         Double result = technicalExpertRepository.findAverageExecutionTime(
@@ -48,7 +45,7 @@ public class TechnicalExpertService {
     }
 
     public List<PerformanceMetricsDTO> getDailyMetrics(String username, LocalDate startDate, LocalDate endDate, List<Long> locationIds) {
-        validateTechnicalRequest(username, startDate, endDate, locationIds, 0, 0);
+        validateTechnicalRequest(username, startDate, endDate, locationIds);
         LocalDateTime start = getStartDateTime(startDate);
         LocalDateTime end = getEndDateTime(endDate);
         return technicalExpertRepository.getDailyMetrics(
@@ -59,7 +56,7 @@ public class TechnicalExpertService {
     }
 
     public List<PerformanceMetricsDTO> getWeeklyMetrics(String username, LocalDate startDate, LocalDate endDate, List<Long> locationIds) {
-        validateTechnicalRequest(username, startDate, endDate, locationIds, 0, 0);
+        validateTechnicalRequest(username, startDate, endDate, locationIds);
         LocalDateTime start = getStartDateTime(startDate);
         LocalDateTime end = getEndDateTime(endDate);
         return technicalExpertRepository.getWeeklyMetrics(
@@ -70,7 +67,7 @@ public class TechnicalExpertService {
     }
 
     public List<PerformanceMetricsDTO> getMonthlyMetrics(String username, LocalDate startDate, LocalDate endDate, List<Long> locationIds) {
-        validateTechnicalRequest(username, startDate, endDate, locationIds, 0, 0);
+        validateTechnicalRequest(username, startDate, endDate, locationIds);
         LocalDateTime start = getStartDateTime(startDate);
         LocalDateTime end = getEndDateTime(endDate);
         return technicalExpertRepository.getMonthlyMetrics(
@@ -80,7 +77,7 @@ public class TechnicalExpertService {
         );
     }
 
-    private void validateTechnicalRequest(String username, LocalDate startDate, LocalDate endDate, List<Long> locationIds, int page, int size) {
+    private void validateTechnicalRequest(String username, LocalDate startDate, LocalDate endDate, List<Long> locationIds) {
         if (username == null || username.isBlank()) {
             throw new ValidationException("INVALID_USERNAME", "Username cannot be empty");
         }
@@ -89,12 +86,6 @@ public class TechnicalExpertService {
         }
         if (locationIds != null && locationIds.stream().anyMatch(id -> id == null || id <= 0)) {
             throw new ValidationException("INVALID_LOCATION_IDS", "Location IDs must be valid positive numbers");
-        }
-        if (page < 0) {
-            throw new ValidationException("INVALID_PAGE", "Page number cannot be negative");
-        }
-        if (size <= 0) {
-            throw new ValidationException("INVALID_SIZE", "Page size must be greater than zero");
         }
     }
 
