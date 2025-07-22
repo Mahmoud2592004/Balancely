@@ -8,6 +8,7 @@ import com.example.userservice.exception.*;
 import com.example.userservice.repository.*;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -16,6 +17,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +26,8 @@ public class AdminService {
     private final BalanceRepository balanceRepository;
     private final BalanceTransactionRepository transactionRepository;
     private final RechargeCardRepository rechargeCardRepository;
+
+    private static final int BATCH_SIZE = 100;
 
     @Transactional
     public String rechargeAgentBalance(String adminUsername, RechargeAgentRequest request) {
@@ -88,18 +92,29 @@ public class AdminService {
     }
 
     @Transactional
+    @CacheEvict(value = "cardCounts", key = "#request.cardValue.toString()")
     public List<RechargeCard> generateRechargeCards(GenerateCardsRequest request) {
         validateGenerateCardsRequest(request);
 
         List<RechargeCard> cards = new ArrayList<>();
-        for (int i = 0; i < request.getQuantity(); i++) {
-            RechargeCard card = new RechargeCard();
-            card.setCode(generateUniqueCardCode());
-            card.setValue(request.getCardValue());
-            card.setUsed(false);
-            cards.add(card);
+        int remainingQuantity = request.getQuantity();
+
+        while (remainingQuantity > 0) {
+            int batchSize = Math.min(remainingQuantity, BATCH_SIZE);
+            List<RechargeCard> batch = new ArrayList<>();
+            for (int i = 0; i < batchSize; i++) {
+                RechargeCard card = new RechargeCard();
+                card.setCode(generateUniqueCardCode());
+                card.setValue(request.getCardValue());
+                card.setUsed(false);
+                batch.add(card);
+            }
+            rechargeCardRepository.saveAll(batch);
+            cards.addAll(batch);
+            remainingQuantity -= batchSize;
         }
-        return rechargeCardRepository.saveAll(cards);
+
+        return cards;
     }
 
     private void validateGenerateCardsRequest(GenerateCardsRequest request) {
@@ -115,22 +130,17 @@ public class AdminService {
     }
 
     private String generateUniqueCardCode() {
-        String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-        SecureRandom random = new SecureRandom();
-        String code;
+        String code = UUID.randomUUID().toString().replaceAll("-", "").substring(0, 16);
         int maxAttempts = 10;
         int attempts = 0;
 
-        do {
-            if (attempts++ >= maxAttempts) {
-                throw new ValidationException("CARD_CODE_GENERATION_FAILED", "Failed to generate unique card code after multiple attempts");
-            }
-            StringBuilder sb = new StringBuilder(16);
-            for (int i = 0; i < 16; i++) {
-                sb.append(characters.charAt(random.nextInt(characters.length())));
-            }
-            code = sb.toString();
-        } while (rechargeCardRepository.existsByCode(code));
+        while (rechargeCardRepository.existsByCode(code) && attempts++ < maxAttempts) {
+            code = UUID.randomUUID().toString().replaceAll("-", "").substring(0, 16);
+        }
+
+        if (attempts >= maxAttempts) {
+            throw new ValidationException("CARD_CODE_GENERATION_FAILED", "Failed to generate unique card code after multiple attempts");
+        }
 
         return code;
     }

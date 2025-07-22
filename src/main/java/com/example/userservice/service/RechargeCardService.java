@@ -7,6 +7,8 @@ import com.example.userservice.exception.*;
 import com.example.userservice.repository.*;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -14,6 +16,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -25,6 +28,8 @@ public class RechargeCardService {
     private final BalanceRepository balanceRepository;
     private final BalanceTransactionRepository transactionRepository;
     private final TransactionService transactionService;
+
+    private static final int BATCH_SIZE = 100;
 
     @Transactional
     public List<RechargeCard> buyRechargeCards(String posUsername, BuyCardRequest request) {
@@ -40,20 +45,31 @@ public class RechargeCardService {
         }
 
         String shard = CardShardSelector.getShard(request.getCardValue());
-        if (rechargeCardRepository.countByIsUsedFalseAndValue(request.getCardValue()) < request.getQuantity()) {
+        if (getAvailableCardCount(request.getCardValue()) < request.getQuantity()) {
             throw new ResourceNotFoundException("INSUFFICIENT_CARDS", "Not enough cards available for value " + request.getCardValue());
         }
 
         BalanceTransaction transaction = startTransaction(posUser, totalCost);
         try {
             updateBalance(posBalance, totalCost);
-            List<RechargeCard> cards = assignCards(posUser, request, shard);
+            List<RechargeCard> cards = assignCardsInBatches(posUser, request, shard);
             completeTransaction(transaction, "SUCCESS");
+            evictCardCountCache(request.getCardValue());
             return cards;
         } catch (Exception e) {
             completeTransaction(transaction, "FAILED");
             throw e;
         }
+    }
+
+    @Cacheable(value = "cardCounts", key = "#value.toString()")
+    public long getAvailableCardCount(BigDecimal value) {
+        return rechargeCardRepository.countByIsUsedFalseAndValue(value);
+    }
+
+    @CacheEvict(value = "cardCounts", key = "#value.toString()")
+    public void evictCardCountCache(BigDecimal value) {
+        // Async cache eviction handled by Spring Cache
     }
 
     private BalanceTransaction startTransaction(User posUser, BigDecimal totalCost) {
@@ -73,16 +89,32 @@ public class RechargeCardService {
         balanceRepository.save(posBalance);
     }
 
-    private List<RechargeCard> assignCards(User posUser, BuyCardRequest request, String shard) {
-        Pageable pageable = PageRequest.of(0, request.getQuantity());
-        List<RechargeCard> availableCards = rechargeCardRepository.findTopByIsUsedFalseAndValue(
-                request.getCardValue(), pageable);
-        if (availableCards.size() < request.getQuantity()) {
-            throw new ResourceNotFoundException("INSUFFICIENT_CARDS", "Not enough cards available for value " + request.getCardValue());
+    private List<RechargeCard> assignCardsInBatches(User posUser, BuyCardRequest request, String shard) {
+        List<RechargeCard> assignedCards = new ArrayList<>();
+        int remainingQuantity = request.getQuantity();
+        LocalDateTime now = LocalDateTime.now();
+
+        while (remainingQuantity > 0) {
+            int batchSize = Math.min(remainingQuantity, BATCH_SIZE);
+            Pageable pageable = PageRequest.of(0, batchSize);
+            List<RechargeCard> batchCards = rechargeCardRepository.findTopByIsUsedFalseAndValue(
+                    request.getCardValue(), pageable);
+            if (batchCards.size() < batchSize) {
+                throw new ResourceNotFoundException("INSUFFICIENT_CARDS", "Not enough cards available for value " + request.getCardValue());
+            }
+
+            List<Long> cardIds = batchCards.stream().map(RechargeCard::getId).collect(Collectors.toList());
+            List<Long> versions = batchCards.stream().map(RechargeCard::getVersion).collect(Collectors.toList());
+            int updated = rechargeCardRepository.updateCardsToUsed(cardIds, posUser, now, versions.get(0));
+            if (updated != batchSize) {
+                throw new OptimisticLockException("Concurrent modification detected for cards (OPTIMISTIC_LOCK_FAILED)");
+            }
+
+            assignedCards.addAll(batchCards);
+            remainingQuantity -= batchSize;
         }
-        List<Long> cardIds = availableCards.stream().map(RechargeCard::getId).collect(Collectors.toList());
-        rechargeCardRepository.updateCardsToUsed(cardIds, posUser, LocalDateTime.now());
-        return availableCards;
+
+        return assignedCards;
     }
 
     private void completeTransaction(BalanceTransaction transaction, String status) {
