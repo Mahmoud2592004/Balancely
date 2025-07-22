@@ -15,11 +15,9 @@ public interface TechnicalExpertRepository extends JpaRepository<BalanceTransact
             "JOIN bt.source u " +
             "JOIN u.location l " +
             "WHERE bt.status = 'FAILED' " +
-            "AND u.username = :username " +
             "AND (:locationIds IS NULL OR l.id IN :locationIds) " +
             "AND bt.timestamp BETWEEN :startDate AND :endDate")
     List<BalanceTransaction> findFailedTransactions(
-            @Param("username") String username,
             @Param("locationIds") List<Long> locationIds,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
@@ -29,11 +27,9 @@ public interface TechnicalExpertRepository extends JpaRepository<BalanceTransact
             "JOIN u.location l " +
             "WHERE bt.executionTime IS NOT NULL " +
             "AND bt.executionTime > 0 " +
-            "AND u.username = :username " +
             "AND (:locationIds IS NULL OR l.id IN :locationIds) " +
             "AND bt.timestamp BETWEEN :startDate AND :endDate")
     Double findAverageExecutionTime(
-            @Param("username") String username,
             @Param("locationIds") List<Long> locationIds,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
@@ -46,13 +42,11 @@ public interface TechnicalExpertRepository extends JpaRepository<BalanceTransact
             "FROM BalanceTransaction bt " +
             "JOIN bt.source u " +
             "JOIN u.location l " +
-            "WHERE u.username = :username " +
-            "AND (:locationIds IS NULL OR l.id IN :locationIds) " +
+            "WHERE (:locationIds IS NULL OR l.id IN :locationIds) " +
             "AND bt.timestamp BETWEEN :startDate AND :endDate " +
             "GROUP BY FUNCTION('DATE', bt.timestamp) " +
             "ORDER BY FUNCTION('DATE', bt.timestamp) DESC")
     List<PerformanceMetricsDTO> getDailyMetrics(
-            @Param("username") String username,
             @Param("locationIds") List<Long> locationIds,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
@@ -65,13 +59,11 @@ public interface TechnicalExpertRepository extends JpaRepository<BalanceTransact
             "FROM BalanceTransaction bt " +
             "JOIN bt.source u " +
             "JOIN u.location l " +
-            "WHERE u.username = :username " +
-            "AND (:locationIds IS NULL OR l.id IN :locationIds) " +
+            "WHERE (:locationIds IS NULL OR l.id IN :locationIds) " +
             "AND bt.timestamp BETWEEN :startDate AND :endDate " +
             "GROUP BY EXTRACT(WEEK FROM bt.timestamp) " +
             "ORDER BY EXTRACT(WEEK FROM bt.timestamp) DESC")
     List<PerformanceMetricsDTO> getWeeklyMetrics(
-            @Param("username") String username,
             @Param("locationIds") List<Long> locationIds,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
@@ -84,13 +76,11 @@ public interface TechnicalExpertRepository extends JpaRepository<BalanceTransact
             "FROM BalanceTransaction bt " +
             "JOIN bt.source u " +
             "JOIN u.location l " +
-            "WHERE u.username = :username " +
-            "AND (:locationIds IS NULL OR l.id IN :locationIds) " +
+            "WHERE (:locationIds IS NULL OR l.id IN :locationIds) " +
             "AND bt.timestamp BETWEEN :startDate AND :endDate " +
             "GROUP BY EXTRACT(MONTH FROM bt.timestamp) " +
             "ORDER BY EXTRACT(MONTH FROM bt.timestamp) DESC")
     List<PerformanceMetricsDTO> getMonthlyMetrics(
-            @Param("username") String username,
             @Param("locationIds") List<Long> locationIds,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
