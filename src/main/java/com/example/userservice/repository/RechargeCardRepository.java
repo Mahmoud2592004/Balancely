@@ -27,7 +27,7 @@ public interface RechargeCardRepository extends JpaRepository<RechargeCard, Long
     List<Long> findAvailableCardIds(@Param("value") BigDecimal value, Pageable pageable);
 
     @Modifying
-    @Query(value = "UPDATE recharge_card SET is_used = true, used_by_id = :userId, used_at = :usedAt " +
+    @Query(value = "UPDATE recharge_cards SET is_used = true, used_by_id = :userId, used_at = :usedAt " +
             "WHERE id IN :cardIds AND is_used = false", nativeQuery = true)
     int markCardsUsed(@Param("cardIds") List<Long> cardIds, @Param("userId") Long userId,
                       @Param("usedAt") LocalDateTime usedAt);
