@@ -4,11 +4,11 @@ import com.example.userservice.dto.CardStatisticsDTO;
 import com.example.userservice.entity.RechargeCard;
 import com.example.userservice.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.data.domain.Pageable;
-
 import jakarta.persistence.LockModeType;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -19,15 +19,22 @@ public interface RechargeCardRepository extends JpaRepository<RechargeCard, Long
     List<RechargeCard> findByIsUsedFalse();
     long countByIsUsedFalseAndValue(BigDecimal value);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT r FROM RechargeCard r WHERE r.isUsed = false AND r.value = :value")
-    List<RechargeCard> findTopByIsUsedFalseAndValue(@Param("value") BigDecimal value, Pageable pageable);
+    List<RechargeCard> lockAvailableCards(@Param("value") BigDecimal value, Pageable pageable);
+
+    @Query("SELECT r.id FROM RechargeCard r WHERE r.isUsed = false AND r.value = :value")
+    List<Long> findAvailableCardIds(@Param("value") BigDecimal value, Pageable pageable);
 
     @Modifying
-    @Query("UPDATE RechargeCard r SET r.isUsed = true, r.usedBy = :user, r.usedAt = :usedAt WHERE r.id IN :cardIds AND r.version = :version")
-    int updateCardsToUsed(@Param("cardIds") List<Long> cardIds, @Param("user") User user, @Param("usedAt") LocalDateTime usedAt, @Param("version") Long version);
+    @Query(value = "UPDATE recharge_card SET is_used = true, used_by_id = :userId, used_at = :usedAt " +
+            "WHERE id IN :cardIds AND is_used = false", nativeQuery = true)
+    int markCardsUsed(@Param("cardIds") List<Long> cardIds, @Param("userId") Long userId,
+                      @Param("usedAt") LocalDateTime usedAt);
 
     boolean existsByCode(String code);
 
+    // Existing statistics queries remain unchanged
     @Query("SELECT NEW com.example.userservice.dto.CardStatisticsDTO(" +
             "r.value, COUNT(r), SUM(CASE WHEN r.isUsed = true THEN 1 ELSE 0 END)) " +
             "FROM RechargeCard r " +

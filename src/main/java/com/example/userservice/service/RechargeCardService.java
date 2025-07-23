@@ -7,7 +7,7 @@ import com.example.userservice.exception.*;
 import com.example.userservice.repository.*;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -18,7 +18,6 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -34,9 +33,15 @@ public class RechargeCardService {
     @Transactional
     public List<RechargeCard> buyRechargeCards(String posUsername, BuyCardRequest request) {
         validateBuyCardRequest(request);
+
+        // Early cache check
+        if (getAvailableCardCount(request.getCardValue()) < request.getQuantity()) {
+            throw new ResourceNotFoundException("INSUFFICIENT_CARDS", "Not enough cards available for value " + request.getCardValue());
+        }
+
         User posUser = userRepository.findByUsername(posUsername)
-                .orElseThrow(() -> new UserNotFoundException("User with username '" + posUsername + "' not found"));
-        Balance posBalance = balanceRepository.findByUser(posUser)
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
+        Balance posBalance = balanceRepository.findByUserId(posUser.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("BALANCE_NOT_FOUND", "Balance for user not found"));
 
         BigDecimal totalCost = request.getCardValue().multiply(BigDecimal.valueOf(request.getQuantity()));
@@ -44,17 +49,12 @@ public class RechargeCardService {
             throw new InsufficientBalanceException("INSUFFICIENT_BALANCE", "Insufficient balance to buy cards");
         }
 
-        String shard = CardShardSelector.getShard(request.getCardValue());
-        if (getAvailableCardCount(request.getCardValue()) < request.getQuantity()) {
-            throw new ResourceNotFoundException("INSUFFICIENT_CARDS", "Not enough cards available for value " + request.getCardValue());
-        }
-
         BalanceTransaction transaction = startTransaction(posUser, totalCost);
         try {
             updateBalance(posBalance, totalCost);
-            List<RechargeCard> cards = assignCardsInBatches(posUser, request, shard);
+            List<RechargeCard> cards = assignCardsInBatches(posUser, request);
             completeTransaction(transaction, "SUCCESS");
-            evictCardCountCache(request.getCardValue());
+            updateAvailableCardCount(request.getCardValue(), request.getQuantity());
             return cards;
         } catch (Exception e) {
             completeTransaction(transaction, "FAILED");
@@ -67,9 +67,9 @@ public class RechargeCardService {
         return rechargeCardRepository.countByIsUsedFalseAndValue(value);
     }
 
-    @CacheEvict(value = "cardCounts", key = "#value.toString()")
-    public void evictCardCountCache(BigDecimal value) {
-        // Async cache eviction handled by Spring Cache
+    @CachePut(value = "cardCounts", key = "#value.toString()")
+    public long updateAvailableCardCount(BigDecimal value, int quantity) {
+        return rechargeCardRepository.countByIsUsedFalseAndValue(value);
     }
 
     private BalanceTransaction startTransaction(User posUser, BigDecimal totalCost) {
@@ -80,7 +80,6 @@ public class RechargeCardService {
         transaction.setDestination(posUser);
         transaction.setStatus("PENDING");
         transaction.setStartTime(LocalDateTime.now());
-        transactionService.logTransaction(transaction);
         return transaction;
     }
 
@@ -89,31 +88,27 @@ public class RechargeCardService {
         balanceRepository.save(posBalance);
     }
 
-    private List<RechargeCard> assignCardsInBatches(User posUser, BuyCardRequest request, String shard) {
+    private List<RechargeCard> assignCardsInBatches(User posUser, BuyCardRequest request) {
         List<RechargeCard> assignedCards = new ArrayList<>();
-        int remainingQuantity = request.getQuantity();
+        int quantity = request.getQuantity();
         LocalDateTime now = LocalDateTime.now();
 
-        while (remainingQuantity > 0) {
-            int batchSize = Math.min(remainingQuantity, BATCH_SIZE);
-            Pageable pageable = PageRequest.of(0, batchSize);
-            List<RechargeCard> batchCards = rechargeCardRepository.findTopByIsUsedFalseAndValue(
-                    request.getCardValue(), pageable);
-            if (batchCards.size() < batchSize) {
-                throw new ResourceNotFoundException("INSUFFICIENT_CARDS", "Not enough cards available for value " + request.getCardValue());
-            }
-
-            List<Long> cardIds = batchCards.stream().map(RechargeCard::getId).collect(Collectors.toList());
-            List<Long> versions = batchCards.stream().map(RechargeCard::getVersion).collect(Collectors.toList());
-            int updated = rechargeCardRepository.updateCardsToUsed(cardIds, posUser, now, versions.get(0));
-            if (updated != batchSize) {
-                throw new OptimisticLockException("Concurrent modification detected for cards (OPTIMISTIC_LOCK_FAILED)");
-            }
-
-            assignedCards.addAll(batchCards);
-            remainingQuantity -= batchSize;
+        // Fetch all card IDs in one query
+        Pageable pageable = PageRequest.of(0, quantity);
+        List<Long> cardIds = rechargeCardRepository.findAvailableCardIds(request.getCardValue(), pageable);
+        if (cardIds.size() < quantity) {
+            throw new ResourceNotFoundException("INSUFFICIENT_CARDS",
+                    "Not enough cards available for value " + request.getCardValue());
         }
 
+        // Bulk update cards
+        int updated = rechargeCardRepository.markCardsUsed(cardIds, posUser.getId(), now);
+        if (updated != quantity) {
+            throw new OptimisticLockException("Concurrent modification detected for cards");
+        }
+
+        // Fetch full card details only for return
+        assignedCards.addAll(rechargeCardRepository.findAllById(cardIds));
         return assignedCards;
     }
 
