@@ -25,9 +25,7 @@ public interface TechnicalExpertRepository extends JpaRepository<BalanceTransact
     @Query("SELECT COALESCE(AVG(bt.executionTime), 0) FROM BalanceTransaction bt " +
             "JOIN bt.source u " +
             "JOIN u.location l " +
-            "WHERE bt.executionTime IS NOT NULL " +
-            "AND bt.executionTime > 0 " +
-            "AND (:locationIds IS NULL OR l.id IN :locationIds) " +
+            "WHERE (:locationIds IS NULL OR l.id IN :locationIds) " +
             "AND bt.timestamp BETWEEN :startDate AND :endDate")
     Double findAverageExecutionTime(
             @Param("locationIds") List<Long> locationIds,
@@ -38,7 +36,7 @@ public interface TechnicalExpertRepository extends JpaRepository<BalanceTransact
             "FUNCTION('DATE', bt.timestamp), " +
             "COUNT(bt), " +
             "SUM(CASE WHEN bt.status = 'FAILED' THEN 1 ELSE 0 END), " +
-            "AVG(bt.executionTime)) " +
+            "COALESCE(AVG(bt.executionTime), 0)) " +
             "FROM BalanceTransaction bt " +
             "JOIN bt.source u " +
             "JOIN u.location l " +
@@ -88,12 +86,22 @@ public interface TechnicalExpertRepository extends JpaRepository<BalanceTransact
     @Query("SELECT COALESCE(AVG(bt.executionTime), 0) FROM BalanceTransaction bt " +
             "JOIN bt.source u " +
             "JOIN u.location l " +
-            "WHERE bt.executionTime IS NOT NULL " +
-            "AND bt.executionTime > 0 " +
-            "AND bt.transactionType = 'BUY_CARD' " +  // Assuming you have a type field
+            "WHERE bt.transactionType IN ('BUY_CARD', 'card') " +
             "AND (:locationIds IS NULL OR l.id IN :locationIds) " +
             "AND bt.timestamp BETWEEN :startDate AND :endDate")
     Double findAverageBuyCardExecutionTime(
+            @Param("locationIds") List<Long> locationIds,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
+
+    @Query("SELECT COUNT(bt) FROM BalanceTransaction bt " +
+            "JOIN bt.source u " +
+            "JOIN u.location l " +
+            "WHERE bt.transactionType = :transactionType " +
+            "AND (:locationIds IS NULL OR l.id IN :locationIds) " +
+            "AND bt.timestamp BETWEEN :startDate AND :endDate")
+    Long countTransactionsByType(
+            @Param("transactionType") String transactionType,
             @Param("locationIds") List<Long> locationIds,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);

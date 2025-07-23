@@ -32,7 +32,4 @@ public class RechargeCard {
 
     @Column(name = "used_at")
     private LocalDateTime usedAt;
-
-    @Version
-    private Long version;
 }

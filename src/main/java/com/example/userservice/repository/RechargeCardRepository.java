@@ -4,6 +4,7 @@ import com.example.userservice.dto.CardStatisticsDTO;
 import com.example.userservice.entity.RechargeCard;
 import com.example.userservice.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -20,11 +21,12 @@ public interface RechargeCardRepository extends JpaRepository<RechargeCard, Long
     long countByIsUsedFalseAndValue(BigDecimal value);
 
     @Query("SELECT r FROM RechargeCard r WHERE r.isUsed = false AND r.value = :value")
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     List<RechargeCard> findTopByIsUsedFalseAndValue(@Param("value") BigDecimal value, Pageable pageable);
 
     @Modifying
-    @Query("UPDATE RechargeCard r SET r.isUsed = true, r.usedBy = :user, r.usedAt = :usedAt WHERE r.id IN :cardIds AND r.version = :version")
-    int updateCardsToUsed(@Param("cardIds") List<Long> cardIds, @Param("user") User user, @Param("usedAt") LocalDateTime usedAt, @Param("version") Long version);
+    @Query("UPDATE RechargeCard r SET r.isUsed = true, r.usedBy = :user, r.usedAt = :usedAt WHERE r.id IN :cardIds")
+    void updateCardsToUsed(@Param("cardIds") List<Long> cardIds, @Param("user") User user, @Param("usedAt") LocalDateTime usedAt);
 
     boolean existsByCode(String code);
 

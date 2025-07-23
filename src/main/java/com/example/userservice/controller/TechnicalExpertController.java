@@ -23,7 +23,6 @@ public class TechnicalExpertController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @RequestParam(required = false) List<Long> locationIds) {
-
         return ResponseEntity.ok(
                 technicalExpertService.getFailedTransactions(startDate, endDate, locationIds)
         );
@@ -34,7 +33,6 @@ public class TechnicalExpertController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @RequestParam(required = false) List<Long> locationIds) {
-
         return ResponseEntity.ok(
                 technicalExpertService.getAverageExecutionTime(startDate, endDate, locationIds)
         );
@@ -45,7 +43,6 @@ public class TechnicalExpertController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @RequestParam(required = false) List<Long> locationIds) {
-
         return ResponseEntity.ok(
                 technicalExpertService.getDailyMetrics(startDate, endDate, locationIds)
         );
@@ -56,7 +53,6 @@ public class TechnicalExpertController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @RequestParam(required = false) List<Long> locationIds) {
-
         return ResponseEntity.ok(
                 technicalExpertService.getWeeklyMetrics(startDate, endDate, locationIds)
         );
@@ -67,7 +63,6 @@ public class TechnicalExpertController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @RequestParam(required = false) List<Long> locationIds) {
-
         return ResponseEntity.ok(
                 technicalExpertService.getMonthlyMetrics(startDate, endDate, locationIds)
         );
@@ -78,9 +73,19 @@ public class TechnicalExpertController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @RequestParam(required = false) List<Long> locationIds) {
-
         return ResponseEntity.ok(
                 technicalExpertService.getAverageBuyCardExecutionTime(startDate, endDate, locationIds)
+        );
+    }
+
+    @GetMapping("/transactions/count")
+    public ResponseEntity<Long> getBuyCardTransactionCount(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) List<Long> locationIds,
+            @RequestParam(required = false, defaultValue = "BUY_CARD") String transactionType) {
+        return ResponseEntity.ok(
+                technicalExpertService.getTransactionCount(startDate, endDate, locationIds, transactionType)
         );
     }
 }

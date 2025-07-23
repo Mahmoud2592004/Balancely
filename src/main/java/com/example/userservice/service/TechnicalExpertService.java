@@ -32,14 +32,10 @@ public class TechnicalExpertService {
         validateTechnicalRequest(startDate, endDate, locationIds);
         LocalDateTime start = getStartDateTime(startDate);
         LocalDateTime end = getEndDateTime(endDate);
-        Double result = technicalExpertRepository.findAverageExecutionTime(
+        return technicalExpertRepository.findAverageExecutionTime(
                 locationIds != null && !locationIds.isEmpty() ? locationIds : null,
                 start, end
         );
-        if (result == null) {
-            throw new ResourceNotFoundException("NO_DATA_FOUND", "No execution time data available for the specified criteria");
-        }
-        return result;
     }
 
     public List<PerformanceMetricsDTO> getDailyMetrics(LocalDate startDate, LocalDate endDate, List<Long> locationIds) {
@@ -72,6 +68,27 @@ public class TechnicalExpertService {
         );
     }
 
+    public Double getAverageBuyCardExecutionTime(LocalDate startDate, LocalDate endDate, List<Long> locationIds) {
+        validateTechnicalRequest(startDate, endDate, locationIds);
+        LocalDateTime start = getStartDateTime(startDate);
+        LocalDateTime end = getEndDateTime(endDate);
+        return technicalExpertRepository.findAverageBuyCardExecutionTime(
+                locationIds != null && !locationIds.isEmpty() ? locationIds : null,
+                start, end
+        );
+    }
+
+    public Long getTransactionCount(LocalDate startDate, LocalDate endDate, List<Long> locationIds, String transactionType) {
+        validateTechnicalRequest(startDate, endDate, locationIds);
+        LocalDateTime start = getStartDateTime(startDate);
+        LocalDateTime end = getEndDateTime(endDate);
+        return technicalExpertRepository.countTransactionsByType(
+                transactionType != null ? transactionType : "BUY_CARD",
+                locationIds != null && !locationIds.isEmpty() ? locationIds : null,
+                start, end
+        );
+    }
+
     private void validateTechnicalRequest(LocalDate startDate, LocalDate endDate, List<Long> locationIds) {
         if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
             throw new ValidationException("INVALID_DATE_RANGE", "Start date cannot be after end date");
@@ -82,26 +99,10 @@ public class TechnicalExpertService {
     }
 
     private LocalDateTime getStartDateTime(LocalDate startDate) {
-        return startDate !=
-
-                null ? startDate.atStartOfDay() : LocalDateTime.now().minusMonths(1);
+        return startDate != null ? startDate.atStartOfDay() : LocalDateTime.now().minusMonths(1);
     }
 
     private LocalDateTime getEndDateTime(LocalDate endDate) {
         return endDate != null ? endDate.atTime(LocalTime.MAX) : LocalDateTime.now();
-    }
-
-    public Double getAverageBuyCardExecutionTime(LocalDate startDate, LocalDate endDate, List<Long> locationIds) {
-        validateTechnicalRequest(startDate, endDate, locationIds);
-        LocalDateTime start = getStartDateTime(startDate);
-        LocalDateTime end = getEndDateTime(endDate);
-        Double result = technicalExpertRepository.findAverageBuyCardExecutionTime(
-                locationIds != null && !locationIds.isEmpty() ? locationIds : null,
-                start, end
-        );
-        if (result == null) {
-            throw new ResourceNotFoundException("NO_DATA_FOUND", "No buy card execution time data available for the specified criteria");
-        }
-        return result;
     }
 }
