@@ -90,4 +90,18 @@ public class TechnicalExpertService {
     private LocalDateTime getEndDateTime(LocalDate endDate) {
         return endDate != null ? endDate.atTime(LocalTime.MAX) : LocalDateTime.now();
     }
+
+    public Double getAverageBuyCardExecutionTime(LocalDate startDate, LocalDate endDate, List<Long> locationIds) {
+        validateTechnicalRequest(startDate, endDate, locationIds);
+        LocalDateTime start = getStartDateTime(startDate);
+        LocalDateTime end = getEndDateTime(endDate);
+        Double result = technicalExpertRepository.findAverageBuyCardExecutionTime(
+                locationIds != null && !locationIds.isEmpty() ? locationIds : null,
+                start, end
+        );
+        if (result == null) {
+            throw new ResourceNotFoundException("NO_DATA_FOUND", "No buy card execution time data available for the specified criteria");
+        }
+        return result;
+    }
 }

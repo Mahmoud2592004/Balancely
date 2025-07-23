@@ -84,4 +84,17 @@ public interface TechnicalExpertRepository extends JpaRepository<BalanceTransact
             @Param("locationIds") List<Long> locationIds,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
+
+    @Query("SELECT COALESCE(AVG(bt.executionTime), 0) FROM BalanceTransaction bt " +
+            "JOIN bt.source u " +
+            "JOIN u.location l " +
+            "WHERE bt.executionTime IS NOT NULL " +
+            "AND bt.executionTime > 0 " +
+            "AND bt.transactionType = 'BUY_CARD' " +  // Assuming you have a type field
+            "AND (:locationIds IS NULL OR l.id IN :locationIds) " +
+            "AND bt.timestamp BETWEEN :startDate AND :endDate")
+    Double findAverageBuyCardExecutionTime(
+            @Param("locationIds") List<Long> locationIds,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
 }

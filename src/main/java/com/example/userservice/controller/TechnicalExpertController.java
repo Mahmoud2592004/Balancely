@@ -72,4 +72,15 @@ public class TechnicalExpertController {
                 technicalExpertService.getMonthlyMetrics(startDate, endDate, locationIds)
         );
     }
+
+    @GetMapping("/average-time/buy-card")
+    public ResponseEntity<Double> getAverageBuyCardExecutionTime(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) List<Long> locationIds) {
+
+        return ResponseEntity.ok(
+                technicalExpertService.getAverageBuyCardExecutionTime(startDate, endDate, locationIds)
+        );
+    }
 }
